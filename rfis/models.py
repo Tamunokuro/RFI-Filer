@@ -2,12 +2,14 @@ from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
 
+
 # Create your models here.
 class Rfi(models.Model):
     """Model definition for Rfi."""
 
     project_number = models.CharField(max_length=100)
     project_name = models.CharField(max_length=100)
+    trade = models.CharField(max_length=3, default="M")
     rfi_name = models.CharField(max_length=100)
     rfi_number = models.CharField(max_length=100)
     project_manager = models.CharField(max_length=100)
