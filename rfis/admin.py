@@ -1,10 +1,34 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models import Rfi
+from .models import Rfi, Project
 
 admin.site.site_header = "RFI Admin"
 admin.site.site_title = "RFI Admin Portal"
+
+
+@admin.register(Project)
+class ProjectAdmin(admin.ModelAdmin):
+    list_display = (
+        "project_number",
+        "project_name",
+        "project_manager",
+        "electrical_designers",
+        "mechanical_designers",
+        "contract_administrator",
+        "contractors",
+        "owners",
+        "subconsultants",
+    )
+    search_fields = (
+        "project_number",
+        "project_name",
+        "project_manager",
+        "owners",
+        "subconsultants",
+    )
+    list_filter = ("project_number", "project_manager", "owners", "subconsultants")
+    prepopulated_fields = {"slug": ("project_number", "project_name")}
 
 
 @admin.register(Rfi)
