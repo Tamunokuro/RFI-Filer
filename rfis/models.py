@@ -35,7 +35,7 @@ class Rfi(models.Model):
     """Model definition for Rfi."""
 
     project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="project_rfis"
+        Project, on_delete=models.CASCADE, related_name="project_rfis", null=True
     )
     project_number = models.CharField(max_length=100)
     project_name = models.CharField(max_length=100)
