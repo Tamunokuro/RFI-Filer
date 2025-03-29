@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -37,6 +38,7 @@ class Rfi(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="project_rfis", null=True
     )
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="rfis")
     project_number = models.CharField(max_length=100)
     project_name = models.CharField(max_length=100)
     trade = models.CharField(max_length=3, default="M")

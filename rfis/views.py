@@ -1,13 +1,24 @@
 from django.shortcuts import render
+from django.contrib.auth.models import User
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
-from rfis.serializer import RfiSerializer, ProjectSerializer
+from rfis.serializer import UserSerializer, RfiSerializer, ProjectSerializer
 from rfis.models import Rfi, Project
 
 
 # Create your views here.
+class UserCreateView(generics.CreateAPIView):
+    """API to create a new user"""
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]
+
+
 class ProjectCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         serializer = ProjectSerializer(data=request.data)
         if serializer.is_valid():
@@ -17,6 +28,8 @@ class ProjectCreateView(APIView):
 
 
 class ProjectListView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         """Get all projects"""
         try:
@@ -30,6 +43,7 @@ class ProjectListView(APIView):
 
 class RfiCreateView(APIView):
     """API to create an RFI"""
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """ "Create a new RFI"""
@@ -41,6 +55,8 @@ class RfiCreateView(APIView):
 
 
 class RfiListView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         """Get all RFIs"""
         rfis = RfiSerializer(Rfi.objects.all(), many=True)
@@ -48,6 +64,8 @@ class RfiListView(APIView):
 
 
 class RfiDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, slug):
         """Get a single RFI"""
         try:
@@ -63,6 +81,8 @@ class RfiDetailView(APIView):
 
 
 class RfiUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def patch(self, request, rfi_number, slug):
         """Update a single RFI"""
         try:
