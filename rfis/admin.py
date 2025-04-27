@@ -6,7 +6,6 @@ from .models import Rfi, Project
 admin.site.site_header = "RFI Admin"
 admin.site.site_title = "RFI Admin Portal"
 
-
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = (

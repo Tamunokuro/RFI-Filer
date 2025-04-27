@@ -5,7 +5,6 @@ from rest_framework.views import APIView
 from rfis.serializer import RfiSerializer, ProjectSerializer
 from rfis.models import Rfi, Project
 
-
 # Create your views here.
 class ProjectCreateView(APIView):
     def post(self, request):
@@ -14,7 +13,6 @@ class ProjectCreateView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ProjectListView(APIView):
     def get(self, request):
@@ -27,7 +25,6 @@ class ProjectListView(APIView):
             )
         return Response(projects.data, status=status.HTTP_200_OK)
 
-
 class RfiCreateView(APIView):
     """API to create an RFI"""
 
@@ -39,13 +36,11 @@ class RfiCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class RfiListView(APIView):
     def get(self, request):
         """Get all RFIs"""
         rfis = RfiSerializer(Rfi.objects.all(), many=True)
         return Response(rfis.data, status=status.HTTP_200_OK)
-
 
 class RfiDetailView(APIView):
     def get(self, request, slug):
@@ -60,7 +55,6 @@ class RfiDetailView(APIView):
 
         serialized_rfi = RfiSerializer(rfi.data)
         return Response(serialized_rfi.data, status=status.HTTP_200_OK)
-
 
 class RfiUpdateView(APIView):
     def patch(self, request, rfi_number, slug):
