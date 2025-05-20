@@ -33,12 +33,19 @@ class ProjectListView(APIView):
     def get(self, request):
         """Get all projects"""
         try:
-            projects = ProjectSerializer(Project.objects.all(), many=True)
-        except Project.DoesNotExist:
+            projects = Project.objects.all()
+            if not projects.exists():
+                return Response(
+                    {"message": "There are no projects"}, 
+                    status=status.HTTP_200_OK
+                )
+            serializer = ProjectSerializer(projects, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
             return Response(
-                {"message": "There are no projects"}, status=status.HTTP_404_NOT_FOUND
+                {"message": f"Error fetching projects: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        return Response(projects.data, status=status.HTTP_200_OK)
 
 
 class RfiCreateView(APIView):
@@ -46,11 +53,14 @@ class RfiCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """ "Create a new RFI"""
+        """Create a new RFI"""
+        print("Request data:", request.data)  # Log request data
         serializer = RfiSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            # Add the current user as the author
+            serializer.save(author=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print("Serializer errors:", serializer.errors)  # Log validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
