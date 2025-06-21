@@ -1,13 +1,24 @@
 from django.shortcuts import render
+from django.contrib.auth.models import User
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
-from rfis.serializer import RfiSerializer, ProjectSerializer
+from rfis.serializer import UserSerializer, RfiSerializer, ProjectSerializer
 from rfis.models import Rfi, Project
 
 
 # Create your views here.
+class UserCreateView(generics.CreateAPIView):
+    """API to create a new user"""
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]
+
+
 class ProjectCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         serializer = ProjectSerializer(data=request.data)
         if serializer.is_valid():
@@ -17,30 +28,45 @@ class ProjectCreateView(APIView):
 
 
 class ProjectListView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         """Get all projects"""
         try:
-            projects = ProjectSerializer(Project.objects.all(), many=True)
-        except Project.DoesNotExist:
+            projects = Project.objects.all()
+            if not projects.exists():
+                return Response(
+                    {"message": "There are no projects"}, 
+                    status=status.HTTP_200_OK
+                )
+            serializer = ProjectSerializer(projects, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
             return Response(
-                {"message": "There are no projects"}, status=status.HTTP_404_NOT_FOUND
+                {"message": f"Error fetching projects: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        return Response(projects.data, status=status.HTTP_200_OK)
 
 
 class RfiCreateView(APIView):
     """API to create an RFI"""
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """ "Create a new RFI"""
+        """Create a new RFI"""
+        print("Request data:", request.data)  # Log request data
         serializer = RfiSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            # Add the current user as the author
+            serializer.save(author=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print("Serializer errors:", serializer.errors)  # Log validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RfiListView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         """Get all RFIs"""
         rfis = RfiSerializer(Rfi.objects.all(), many=True)
@@ -48,6 +74,8 @@ class RfiListView(APIView):
 
 
 class RfiDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, slug):
         """Get a single RFI"""
         try:
@@ -63,6 +91,8 @@ class RfiDetailView(APIView):
 
 
 class RfiUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def patch(self, request, rfi_number, slug):
         """Update a single RFI"""
         try:
