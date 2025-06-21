@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
 
+import Header from "./Header";
+import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
+
 const RfiList = () => {
   const navigate = useNavigate();
   const [rfis, setRfis] = useState([]);
@@ -95,48 +98,22 @@ const RfiList = () => {
       <div className="form-decoration decoration-1"></div>
       <div className="form-decoration decoration-2"></div>
       <div className="form-container max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="form-title">RFI List</h2>
-          <button
-            onClick={() => navigate("/create-rfi")}
-            className="form-button max-w-xs"
-          >
-            Create New RFI
-          </button>
+        <Header />
+
+        <div className="py-5 mb-6">
+          <div className="relative max-w-md mx-auto">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search RFIs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
-        {error && (
-          <p className="error-message">
-            <span className="message-icon-wrapper error-icon-wrapper">
-              <svg
-                className="error-icon"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </span>
-            {error}
-          </p>
-        )}
-
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search RFIs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-input"
-          />
-        </div>
-
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto py-5">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">
@@ -182,8 +159,11 @@ const RfiList = () => {
                 >
                   Assigned To {getSortIcon("assigned_to")}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  onClick={() => handleSort("status")}
+                >
+                  Status {getSortIcon("status")}
                 </th>
               </tr>
             </thead>
