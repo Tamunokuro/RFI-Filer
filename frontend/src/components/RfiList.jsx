@@ -4,6 +4,7 @@ import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
 
 import Header from "./Header";
+import Footer from "./Footer";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 
 const RfiList = () => {
@@ -93,7 +94,7 @@ const RfiList = () => {
   }
 
   return (
-    <div className="form-wrapper">
+    <div className="form-wrapper flex flex-col min-h-screen">
       <div className="form-background"></div>
       <div className="form-decoration decoration-1"></div>
       <div className="form-decoration decoration-2"></div>
@@ -160,7 +161,7 @@ const RfiList = () => {
                   Assigned To {getSortIcon("assigned_to")}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("status")}
                 >
                   Status {getSortIcon("status")}
@@ -218,6 +219,7 @@ const RfiList = () => {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 };
