@@ -101,6 +101,8 @@ const CreateRfiForm = () => {
               <option value="M">Mechanical</option>
               <option value="E">Electrical</option>
               <option value="C">Civil</option>
+              <option value="S">Structural</option>
+              <option value="P">Architectural</option>
             </select>
           </div>
 
