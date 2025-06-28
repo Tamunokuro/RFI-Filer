@@ -120,6 +120,12 @@ const RfiList = () => {
               <tr className="bg-gray-50">
                 <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  onClick={() => handleSort("project_number")}
+                >
+                  Project Number {getSortIcon("project_number")}
+                </th>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("rfi_number")}
                 >
                   RFI Number {getSortIcon("rfi_number")}
@@ -175,6 +181,10 @@ const RfiList = () => {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}
                 >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {rfi.project_number}
+                  </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {rfi.rfi_number}
                   </td>
