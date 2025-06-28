@@ -173,7 +173,7 @@ const RfiList = () => {
                 <tr
                   key={rfi.id}
                   className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => navigate(`/rfi/${rfi.id}`)}
+                  onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {rfi.rfi_number}

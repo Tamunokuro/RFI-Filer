@@ -93,10 +93,18 @@ class RfiDetailView(APIView):
 class RfiUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, rfi_number, slug):
+    def get(self, request, pk, slug):
+        try:
+            rfi = Rfi.objects.get(pk=pk, slug=slug)
+            serializer = RfiSerializer(rfi)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Rfi.DoesNotExist:
+            return Response({"message": "RFI not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def patch(self, request, pk, slug):
         """Update a single RFI"""
         try:
-            rfi = Rfi.objects.get(rfi_number=rfi_number, slug=slug)
+            rfi = Rfi.objects.get(pk=pk, slug=slug)
         except Rfi.DoesNotExist:
             return Response(
                 {"message": "The RFI does not exist"}, status=status.HTTP_404_NOT_FOUND
@@ -107,10 +115,10 @@ class RfiUpdateView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, rfi_number, slug):
+    def put(self, request, pk, slug):
         """Update a single RFI"""
         try:
-            rfi = Rfi.objects.get(rfi_number=rfi_number, slug=slug)
+            rfi = Rfi.objects.get(pk=pk, slug=slug)
         except Rfi.DoesNotExist:
             return Response(
                 {"message": "The RFI does not exist"}, status=status.HTTP_404_NOT_FOUND

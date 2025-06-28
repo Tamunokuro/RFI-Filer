@@ -7,6 +7,7 @@ import {
 import CreateRfiForm from "./components/CreateRfiForm";
 import Login from "./components/Login";
 import RfiList from "./components/RfiList";
+import UpdateRfiForm from "./components/UpdateRfiForm";
 
 import { ACCESS_TOKEN } from "./constants";
 
@@ -35,6 +36,7 @@ function App() {
             </PrivateRoute>
           }
         />
+        <Route path="/rfi/:pk/:slug/edit" element={<UpdateRfiForm />} />
         <Route path="/login" element={<Login />} />
       </Routes>
     </Router>

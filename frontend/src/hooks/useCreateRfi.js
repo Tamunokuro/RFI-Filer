@@ -71,8 +71,8 @@ const useCreateRfi = () => {
     const errors = [];
 
     if (!formData.project) errors.push("Project is required");
-    if (!formData.project_number) errors.push("Project number is required");
-    if (!formData.project_name) errors.push("Project name is required");
+    // if (!formData.project_number) errors.push("Project number is required");
+    // if (!formData.project_name) errors.push("Project name is required");
     if (!formData.rfi_name) errors.push("RFI name is required");
     if (!formData.rfi_number) errors.push("RFI number is required");
     if (!formData.project_manager) errors.push("Project manager is required");
@@ -131,9 +131,7 @@ const useCreateRfi = () => {
         const errorMessages = Object.entries(err.response.data)
           .map(
             ([field, errors]) =>
-              `${field}: ${
-                Array.isArray(errors) ? errors.join(", ") : errors
-              }`
+              `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`
           )
           .join(". ");
         setError(

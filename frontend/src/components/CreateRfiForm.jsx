@@ -60,7 +60,7 @@ const CreateRfiForm = () => {
             { name: "project_name", label: "Project Name" },
             { name: "rfi_name", label: "RFI Name" },
             { name: "rfi_number", label: "RFI Number" },
-            { name: "client_rfi_number", label: "Client RFI Number" },
+            // { name: "client_rfi_number", label: "Client RFI Number" },
             { name: "project_manager", label: "Project Manager" },
             { name: "assigned_to", label: "Assigned To" },
           ].map(({ name, label }) => (
