@@ -65,7 +65,7 @@ class RfiCreateView(APIView):
 
 
 class RfiListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         """Get all RFIs"""

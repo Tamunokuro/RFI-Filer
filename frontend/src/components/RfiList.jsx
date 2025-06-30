@@ -114,18 +114,18 @@ const RfiList = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto py-5">
+        <div className="overflow-x-auto py-3 max-w-full">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("project_number")}
                 >
                   Project Number {getSortIcon("project_number")}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("rfi_number")}
                 >
                   RFI Number {getSortIcon("rfi_number")}
@@ -149,19 +149,19 @@ const RfiList = () => {
                   Trade {getSortIcon("trade")}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("received_date")}
                 >
                   Received {getSortIcon("received_date")}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("due_date")}
                 >
                   Due Date {getSortIcon("due_date")}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                   onClick={() => handleSort("assigned_to")}
                 >
                   Assigned To {getSortIcon("assigned_to")}
