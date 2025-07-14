@@ -232,6 +232,7 @@ const RfiList = () => {
                       rfiName={rfi.rfi_name}
                       projectName={rfi.project_name}
                       projectNumber={rfi.project_number}
+                      rfiNumber={rfi.rfi_number}
                       onDelete={(deletedId) =>
                         setRfis((prev) =>
                           prev.filter((rfi) => rfi.id !== deletedId)

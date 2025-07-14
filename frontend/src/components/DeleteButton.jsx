@@ -9,6 +9,7 @@ const RFiDeleteButton = ({
   rfiName,
   projectName,
   projectNumber,
+  rfiNumber,
   onDelete,
 }) => {
   const [showModal, setShowModal] = useState(false);
@@ -56,6 +57,9 @@ const RFiDeleteButton = ({
             <ul className="text-sm text-gray-800 space-y-1 mb-4">
               <li>
                 <span className="font-medium">RFI Name:</span> {rfiName}
+              </li>
+              <li>
+                <span className="font-medium">RFI Number:</span> {rfiNumber}
               </li>
               <li>
                 <span className="font-medium">Project Name:</span> {projectName}
