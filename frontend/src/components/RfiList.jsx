@@ -5,6 +5,7 @@ import { ACCESS_TOKEN } from "../constants";
 
 import Header from "./Header";
 import Footer from "./Footer";
+import RFiDeleteButton from "./DeleteButton";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 
 const RfiList = () => {
@@ -114,7 +115,7 @@ const RfiList = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto py-3 max-w-full">
+        <div className="opy-3 w-full overflow-x-auto lg:overflow-visible">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">
@@ -172,6 +173,9 @@ const RfiList = () => {
                 >
                   Status {getSortIcon("status")}
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -216,6 +220,24 @@ const RfiList = () => {
                         ? "Overdue"
                         : "Active"}
                     </span>
+                  </td>
+
+                  <td
+                    className="px-4 py-4 whitespace-nowrap"
+                    onClick={(e) => e.stopPropagation()} // prevent row click navigation
+                  >
+                    <RFiDeleteButton
+                      pk={rfi.id}
+                      rfiSlug={rfi.slug}
+                      rfiName={rfi.rfi_name}
+                      projectName={rfi.project_name}
+                      projectNumber={rfi.project_number}
+                      onDelete={(deletedId) =>
+                        setRfis((prev) =>
+                          prev.filter((rfi) => rfi.id !== deletedId)
+                        )
+                      }
+                    />
                   </td>
                 </tr>
               ))}

@@ -11,4 +11,5 @@ urlpatterns = [
     path("rfis/<int:pk>/<slug:slug>/", views.RfiUpdateView.as_view(), name="rfi_update"),
     path("projects/", views.ProjectListView.as_view(), name="project_list"),
     path("projects-create/", views.ProjectCreateView.as_view(), name="project_create"),
+    path("rfis-delete/<int:pk>/<slug:slug>/", views.RfiDeleteView.as_view(), name="rfi-delete")
 ]
