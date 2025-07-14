@@ -14,6 +14,10 @@ Let's automate shall we? ▶️⚙️🔥
 - List & Search RFIs
 - Authentication
 
+## Currently Working On
+- The pagination for the Home Page
+- Reporting feature for RFIs
+
 ## Roadmap 🛣️
 - AI Integration for reading emails from contractors and determining the trade for the RFI
 - Add Attachments
