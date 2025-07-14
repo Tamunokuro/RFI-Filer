@@ -42,7 +42,7 @@ const RFiDeleteButton = ({
         <TrashIcon className="h-4 w-4" />
       </button>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/10 backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <div className="flex items-center gap-3 mb-4">
               <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500" />

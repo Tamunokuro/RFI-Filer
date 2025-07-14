@@ -20,10 +20,14 @@ export const AuthProvider = ({ children }) => {
     setUsername(name);
   };
 
-  const logout = () => {
-    localStorage.clear();
-    setIsAuthenticated(false);
+  const logout = (navigate) => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("username");
     setUsername("");
+    setIsAuthenticated(false);
+    if (navigate) {
+      navigate("/login");
+    }
   };
 
   return (

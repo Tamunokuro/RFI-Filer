@@ -51,7 +51,7 @@ const Header = () => {
               </div>
               {isAuthenticated ? (
                 <button
-                  onClick={logout}
+                  onClick={() => logout(navigate)}
                   className="block w-full font-semibold text-left px-2 py-2 text-sm text-red-600 rounded transition duration-150 hover:bg-gray-100"
                 >
                   Logout
