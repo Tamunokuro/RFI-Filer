@@ -5,6 +5,7 @@ import { ACCESS_TOKEN } from "../constants";
 
 import Header from "./Header";
 import Footer from "./Footer";
+import RFiDeleteButton from "./DeleteButton";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 
 const RfiList = () => {
@@ -13,7 +14,11 @@ const RfiList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [page, setPage] = useState(1);
+  const [next, setNext] = useState(null);
+  const [prev, setPrev] = useState(null);
+  const [count, setCount] = useState(0);
+  const pageSize = 10;
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN);
@@ -24,8 +29,16 @@ const RfiList = () => {
 
     const fetchRfis = async () => {
       try {
-        const response = await api.get("/api/rfis/");
-        setRfis(response.data);
+        const response = await api.get("/api/rfis/", {
+          params: {
+            page,
+            search: searchTerm,
+          },
+        });
+        setRfis(response.data.results);
+        setNext(response.data.next);
+        setPrev(response.data.previous);
+        setCount(response.data.count);
       } catch (err) {
         console.error("Error fetching RFIs:", err);
         setError("Failed to load RFIs. Please try again later.");
@@ -35,39 +48,7 @@ const RfiList = () => {
     };
 
     fetchRfis();
-  }, [navigate]);
-
-  const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedRfis = [...rfis].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key]) {
-      return sortConfig.direction === "asc" ? -1 : 1;
-    }
-    if (a[sortConfig.key] > b[sortConfig.key]) {
-      return sortConfig.direction === "asc" ? 1 : -1;
-    }
-    return 0;
-  });
-
-  const filteredRfis = sortedRfis.filter((rfi) =>
-    Object.values(rfi).some(
-      (value) =>
-        value &&
-        value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕";
-    return sortConfig.direction === "asc" ? "↑" : "↓";
-  };
+  }, [navigate, page, searchTerm]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -85,14 +66,6 @@ const RfiList = () => {
     return "bg-green-100 text-green-800";
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="form-wrapper flex flex-col min-h-screen">
       <div className="form-background"></div>
@@ -108,74 +81,53 @@ const RfiList = () => {
               type="text"
               placeholder="Search RFIs..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto py-5">
+        <div className="opy-3 w-full overflow-x-auto lg:overflow-visible">
           <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50">
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("project_number")}
-                >
-                  Project Number {getSortIcon("project_number")}
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Project Number
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("rfi_number")}
-                >
-                  RFI Number {getSortIcon("rfi_number")}
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  RFI Number
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("rfi_name")}
-                >
-                  RFI Name {getSortIcon("rfi_name")}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  RFI Name
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("project_name")}
-                >
-                  Project {getSortIcon("project_name")}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Project
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("trade")}
-                >
-                  Trade {getSortIcon("trade")}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Trade
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("received_date")}
-                >
-                  Received {getSortIcon("received_date")}
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Received
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("due_date")}
-                >
-                  Due Date {getSortIcon("due_date")}
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Due Date
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("assigned_to")}
-                >
-                  Assigned To {getSortIcon("assigned_to")}
+                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Assigned To
                 </th>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => handleSort("status")}
-                >
-                  Status {getSortIcon("status")}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRfis.map((rfi) => (
+              {rfis.map((rfi) => (
                 <tr
                   key={rfi.id}
                   className="hover:bg-gray-50 cursor-pointer"
@@ -184,7 +136,6 @@ const RfiList = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {rfi.project_number}
                   </td>
-
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {rfi.rfi_number}
                   </td>
@@ -217,15 +168,69 @@ const RfiList = () => {
                         : "Active"}
                     </span>
                   </td>
+                  <td
+                    className="px-4 py-4 whitespace-nowrap"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <RFiDeleteButton
+                      pk={rfi.id}
+                      rfiSlug={rfi.slug}
+                      rfiName={rfi.rfi_name}
+                      projectName={rfi.project_name}
+                      projectNumber={rfi.project_number}
+                      rfiNumber={rfi.rfi_number}
+                      onDelete={(deletedId) =>
+                        setRfis((prev) =>
+                          prev.filter((rfi) => rfi.id !== deletedId)
+                        )
+                      }
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {filteredRfis.length === 0 && (
+        {rfis.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No RFIs found matching your search criteria.
+          </div>
+        )}
+
+        {count > 0 && (
+          <div className="flex flex-col items-center gap-2 mt-6">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                disabled={!prev}
+                className={`px-3 py-1 rounded ${
+                  prev
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-gray-300 text-gray-600 cursor-not-allowed"
+                }`}
+              >
+                Prev
+              </button>
+
+              <span className="px-3 py-1 text-sm font-medium text-gray-700">
+                Page {page}
+                {count > pageSize && ` of ${Math.ceil(count / pageSize)}`} (
+                {count} results)
+              </span>
+
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!next}
+                className={`px-3 py-1 rounded ${
+                  next
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-gray-300 text-gray-600 cursor-not-allowed"
+                }`}
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>

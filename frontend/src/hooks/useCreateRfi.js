@@ -64,7 +64,22 @@ const useCreateRfi = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+
+    if (name === "project") {
+      const selectedProject = projects.find(
+        (project) => project.id.toString() === value
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        project: value,
+        project_name: selectedProject?.project_name || "",
+        project_number: selectedProject?.project_number || "",
+        project_manager: selectedProject?.project_manager || "",
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const validateForm = () => {

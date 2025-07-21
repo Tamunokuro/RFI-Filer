@@ -3,11 +3,16 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 
-import { ArrowRightIcon } from "@heroicons/react/20/solid";
-import { ExclamationCircleIcon } from "@heroicons/react/20/solid";
+import {
+  ArrowRightIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/20/solid";
+import { useAuth } from "../context/Auth";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -17,7 +22,7 @@ const Login = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -27,12 +32,15 @@ const Login = () => {
 
     try {
       const response = await api.post("/api/token/", formData);
-      localStorage.setItem(ACCESS_TOKEN, response.data.access);
-      localStorage.setItem(REFRESH_TOKEN, response.data.refresh);
-      localStorage.setItem("username", formData.username);
+      const access = response.data.access;
+      const refresh = response.data.refresh;
+
+      // Store tokens and username using context
+      localStorage.setItem(REFRESH_TOKEN, refresh);
+      localStorage.setItem(ACCESS_TOKEN, access);
+      login(access, formData.username);
+
       navigate("/");
-      window.location.reload();
-      ß;
     } catch (err) {
       console.error(err);
       setError("Invalid username or password");
@@ -60,16 +68,17 @@ const Login = () => {
         )}
 
         <form onSubmit={handleSubmit} className="mt-10 max-w-md mx-auto p-6">
+          {/* Username input */}
           <div className="sm:col-span-4">
             <label
               htmlFor="username"
-              className="block text-sm/6 font-medium text-gray-900"
+              className="block text-sm font-medium text-gray-900"
             >
               Username
             </label>
             <div className="mt-2">
-              <div className="flex items-center rounded-md bg-white pl-3 outline-1 -outline-offset-1 outline-gray-300 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
-                <div className="shrink-0 text-base text-gray-500 select-none sm:text-sm/6">
+              <div className="flex items-center rounded-md bg-white pl-3 outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
+                <div className="shrink-0 text-base text-gray-500 select-none">
                   Filer/
                 </div>
                 <input
@@ -78,41 +87,41 @@ const Login = () => {
                   id="username"
                   onChange={handleChange}
                   value={formData.username}
-                  className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
+                  className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
                   placeholder="janesmith"
                 />
               </div>
             </div>
           </div>
-          <div className="sm:col-span-4">
+
+          {/* Password input */}
+          <div className="sm:col-span-4 mt-4">
             <label
               htmlFor="password"
-              className="block text-sm/6 font-medium text-gray-900"
-              type="password"
+              className="block text-sm font-medium text-gray-900"
             >
               Password
             </label>
             <div className="mt-2">
-              <div className="flex items-center rounded-md bg-white pl-3 outline-1 -outline-offset-1 outline-gray-300 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
-                <input
-                  type="password"
-                  name="password"
-                  id="password"
-                  onChange={handleChange}
-                  value={formData.password}
-                  className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
-                  placeholder="Password"
-                />
-              </div>
+              <input
+                type="password"
+                name="password"
+                id="password"
+                onChange={handleChange}
+                value={formData.password}
+                className="w-full py-1.5 px-3 border border-gray-300 rounded-md text-gray-900"
+                placeholder="••••••••"
+              />
             </div>
           </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="flex justify-center items-center w-full gap-2 mt-4 p-5 py-2 bg-blue-950 text-white rounded text-center hover:bg-indigo-950"
+            className="flex justify-center items-center w-full gap-2 mt-6 py-2 bg-blue-950 text-white rounded hover:bg-indigo-950"
           >
             {loading ? (
-              <span className="flex items-center justify-center font-semibold">
+              <span className="flex items-center font-semibold">
                 <span className="loading-spinner mr-2"></span>
                 Logging in...
               </span>

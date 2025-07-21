@@ -77,6 +77,11 @@ const CreateRfiForm = () => {
                 id={name}
                 value={formData[name]}
                 onChange={handleChange}
+                readOnly={
+                  name === "project_number" ||
+                  name === "project_name" ||
+                  name === "project_manager"
+                }
                 className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                 required={name !== "client_rfi_number"}
               />
