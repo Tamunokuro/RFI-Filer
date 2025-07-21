@@ -1,6 +1,8 @@
 import { useAuth } from "../context/Auth";
 import { useNavigate } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
+import { FolderIcon } from "@heroicons/react/24/outline";
+
 import { useState, useEffect, useRef } from "react";
 
 const Header = () => {
@@ -27,13 +29,22 @@ const Header = () => {
 
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
         {isAuthenticated && (
-          <button
-            onClick={() => navigate("/create-rfi")}
-            className="form-button max-w-xs bg-blue-900 hover:bg-indigo-950 text-white font-semibold py-2 px-4 rounded shadow flex items-center gap-2"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Create New RFI
-          </button>
+          <>
+            <button
+              onClick={() => navigate("/projects")}
+              className="hover:bg-blue-200 text-blue-900 p-2 rounded-full"
+            >
+              <FolderIcon className="w-6 h-6" />
+            </button>
+
+            <button
+              onClick={() => navigate("/create-rfi")}
+              className="form-button max-w-xs bg-blue-900 hover:bg-indigo-950 text-white font-semibold py-2 px-4 rounded shadow flex items-center gap-2"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Create New RFI
+            </button>
+          </>
         )}
 
         <div className="relative">
