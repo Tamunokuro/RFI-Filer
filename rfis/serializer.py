@@ -39,7 +39,9 @@ class RfiSerializer(serializers.ModelSerializer):
 
 class ProjectSerializer(serializers.ModelSerializer):
     """Serializer to map the Model instance into JSON format."""
+    rfi_count = serializers.IntegerField(read_only=True)
+    rfis = RfiSerializer(source='project_rfis', many=True, read_only=True)
 
     class Meta:
         model = Project
-        fields = "__all__"
+        fields = ["id", "project_name", "project_number", "project_manager", "rfi_count", "rfis"]

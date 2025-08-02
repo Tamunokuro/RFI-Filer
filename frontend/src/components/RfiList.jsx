@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
-
-import Header from "./Header";
 import Footer from "./Footer";
 import RFiDeleteButton from "./DeleteButton";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
+import Header from "./Header";
 
 const RfiList = () => {
   const navigate = useNavigate();
@@ -30,10 +29,7 @@ const RfiList = () => {
     const fetchRfis = async () => {
       try {
         const response = await api.get("/api/rfis/", {
-          params: {
-            page,
-            search: searchTerm,
-          },
+          params: { page, search: searchTerm },
         });
         setRfis(response.data.results);
         setNext(response.data.next);
@@ -67,13 +63,11 @@ const RfiList = () => {
   };
 
   return (
-    <div className="form-wrapper flex flex-col min-h-screen">
-      <div className="form-background"></div>
-      <div className="form-decoration decoration-1"></div>
-      <div className="form-decoration decoration-2"></div>
+    <div className="form-wrapper flex flex-col min-h-screen p-4">
       <div className="form-container max-w-7xl mx-auto">
-        <Header />
+        <Header title="RFI List" />
 
+        {/* Search bar */}
         <div className="py-5 mb-6">
           <div className="relative max-w-md mx-auto">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -90,40 +84,19 @@ const RfiList = () => {
           </div>
         </div>
 
+        {/* Table */}
         <div className="opy-3 w-full overflow-x-auto lg:overflow-visible">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Project Number
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  RFI Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  RFI Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Project
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Trade
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Received
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Due Date
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Assigned To
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Actions
-                </th>
+                {["Project Number", "RFI Number", "RFI Name", "Project", "Trade", "Received", "Due Date", "Assigned To", "Status", "Actions"].map((heading, index) => (
+                  <th
+                    key={index}
+                    className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -133,31 +106,31 @@ const RfiList = () => {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {rfi.project_number}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {rfi.rfi_number}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.rfi_name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.project_name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.trade}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {formatDate(rfi.received_date)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {formatDate(rfi.due_date)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.assigned_to}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <span
                       className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
                         rfi.due_date
@@ -169,7 +142,7 @@ const RfiList = () => {
                     </span>
                   </td>
                   <td
-                    className="px-4 py-4 whitespace-nowrap"
+                    className="px-4 py-4"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <RFiDeleteButton
@@ -192,14 +165,16 @@ const RfiList = () => {
           </table>
         </div>
 
+        {/* Empty state */}
         {rfis.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No RFIs found matching your search criteria.
           </div>
         )}
 
+        {/* Pagination */}
         {count > 0 && (
-          <div className="flex flex-col items-center gap-2 mt-6">
+          <div className="flex flex-col items-center gap-2 my-6">
             <div className="flex gap-4">
               <button
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}

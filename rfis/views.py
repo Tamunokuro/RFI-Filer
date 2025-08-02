@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.db.models import Count
 from django.contrib.auth.models import User
 from rest_framework.response import Response
 from rest_framework import status, generics
@@ -35,7 +36,7 @@ class ProjectListView(APIView):
     def get(self, request):
         """Get all projects"""
         try:
-            projects = Project.objects.all()
+            projects = Project.objects.prefetch_related('rfis').annotate(rfi_count=Count('project_rfis'))
             if not projects.exists():
                 return Response(
                     {"message": "There are no projects"}, 
