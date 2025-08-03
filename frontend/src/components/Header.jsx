@@ -1,11 +1,11 @@
 import { useAuth } from "../context/Auth";
 import { useNavigate } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
-import { FolderIcon } from "@heroicons/react/24/outline";
+import { FolderOpenIcon } from "@heroicons/react/24/outline";
 
 import { useState, useEffect, useRef } from "react";
 
-const Header = () => {
+const Header = ({ title }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ const Header = () => {
   return (
     <div className="flex justify-between items-center my-5 relative">
       <h2 className="form-title font-bold text-3xl text-indigo-950">
-        RFI List
+        {title || "RFI Filer"}
       </h2>
 
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
@@ -32,14 +32,15 @@ const Header = () => {
           <>
             <button
               onClick={() => navigate("/projects")}
-              className="hover:bg-blue-200 text-blue-900 p-2 rounded-full"
+              className="hover:bg-blue-100 text-blue-800 p-2 rounded-full border border-blue-200 shadow-sm transition duration-150"
+              title="View Projects"
             >
-              <FolderIcon className="w-6 h-6" />
+              <FolderOpenIcon className="w-6 h-6" />
             </button>
 
             <button
               onClick={() => navigate("/create-rfi")}
-              className="form-button max-w-xs bg-blue-900 hover:bg-indigo-950 text-white font-semibold py-2 px-4 rounded shadow flex items-center gap-2"
+              className="form-button max-w-xs bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center gap-2 transition duration-150"
             >
               <PlusIcon className="w-5 h-5" />
               Create New RFI
