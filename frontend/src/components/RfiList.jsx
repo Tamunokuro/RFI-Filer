@@ -63,7 +63,7 @@ const RfiList = () => {
   };
 
   return (
-    <div className="form-wrapper flex flex-col min-h-screen p-4">
+    <div className="form-wrapper flex flex-col min-h-screen">
       <div className="form-container max-w-7xl mx-auto">
         <Header title="RFI List" />
 
@@ -89,7 +89,18 @@ const RfiList = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                {["Project Number", "RFI Number", "RFI Name", "Project", "Trade", "Received", "Due Date", "Assigned To", "Status", "Actions"].map((heading, index) => (
+                {[
+                  "Project Number",
+                  "RFI Number",
+                  "RFI Name",
+                  "Project",
+                  "Trade",
+                  "Received",
+                  "Due Date",
+                  "Assigned To",
+                  "Status",
+                  "Actions",
+                ].map((heading, index) => (
                   <th
                     key={index}
                     className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase"
