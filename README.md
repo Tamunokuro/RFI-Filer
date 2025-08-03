@@ -15,8 +15,9 @@ Let's automate shall we? ▶️⚙️🔥
 - Authentication
 
 ## Currently Working On
-- The pagination for the Home Page
-- Reporting feature for RFIs
+- Allowing users to create the profiles and join a project
+- Chat section under RFIs to allow discussions
+- Notification bell for designers
 
 ## Roadmap 🛣️
 - AI Integration for reading emails from contractors and determining the trade for the RFI
