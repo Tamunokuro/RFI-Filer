@@ -139,7 +139,9 @@ const RfiList = () => {
                     {formatDate(rfi.due_date)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {rfi.assigned_to}
+                    {rfi.assigned_to_detail?.length
+                      ? rfi.assigned_to_detail.map((m) => m.name).join(", ")
+                      : "—"}
                   </td>
                   <td className="px-6 py-4">
                     <span

@@ -1,15 +1,37 @@
+# rfis/urls.py
 from django.urls import path
-
-from . import views
+from .views import (
+    ProjectListCreate, ProjectDetail,
+    RfiListCreate, RfiDetail,
+    MemberListCreate, MemberDetail,
+    ProjectMembershipListCreate, ProjectMembershipDetail,   # add this import
+    ProjectMembers
+)
 
 app_name = "rfis"
 
 urlpatterns = [
-    path("rfis/", views.RfiListView.as_view(), name="rfi_list"),
-    path("rfis-create/", views.RfiCreateView.as_view(), name="rfi_create"),
-    path("rfis/<slug:slug>/", views.RfiDetailView.as_view(), name="rfi_detail"),
-    path("rfis/<int:pk>/<slug:slug>/", views.RfiUpdateView.as_view(), name="rfi_update"),
-    path("projects/", views.ProjectListView.as_view(), name="project_list"),
-    path("projects-create/", views.ProjectCreateView.as_view(), name="project_create"),
-    path("rfis-delete/<int:pk>/<slug:slug>/", views.RfiDeleteView.as_view(), name="rfi-delete")
+    # ----- Projects -----
+    path("projects/", ProjectListCreate.as_view(), name="project-list"),
+    path("projects/<int:pk>/", ProjectDetail.as_view(), name="project-detail"),
+    path("projects/<int:pk>/members/", ProjectMembers.as_view(), name="project-members"),
+
+    # Optional nested RFIs under a project (handy for your UI if you want it)
+    # You can simply call /api/rfis/?project=<id> instead, so this is optional.
+    # path("projects/<int:pk>/rfis/", RfiListCreate.as_view(), name="project-rfi-list"),
+
+    # ----- RFIs -----
+    # GET /api/rfis/?project=<id>  (filter by project)
+    path("rfis/", RfiListCreate.as_view(), name="rfi-list"),
+    path("rfis/<int:pk>/", RfiDetail.as_view(), name="rfi-detail"),
+    # rfis/urls.py
+    path("rfis/<int:pk>/<slug:slug>/", RfiDetail.as_view(), name="rfi-detail-slug"),
+
+    # ----- Members -----
+    path("members/", MemberListCreate.as_view(), name="member-list"),
+    path("members/<int:pk>/", MemberDetail.as_view(), name="member-detail"),
+
+    # ----- Project Memberships (through table) -----
+    path("memberships/", ProjectMembershipListCreate.as_view(), name="membership-list"),
+    path("memberships/<int:pk>/", ProjectMembershipDetail.as_view(), name="membership-detail"),
 ]

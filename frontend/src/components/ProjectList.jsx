@@ -127,7 +127,7 @@ const ProjectList = () => {
                       {project.project_number} - {project.project_name}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Project Manager: {project.project_manager}
+                      Project Manager: {project.project_manager_name}
                     </p>
                     <p className="text-sm text-gray-600">
                       RFIs: {project.rfi_count || 0}

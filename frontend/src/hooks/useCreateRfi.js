@@ -5,25 +5,29 @@ import { ACCESS_TOKEN } from "../constants";
 
 const useCreateRfi = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+
+  const initialForm = {
     project: "",
-    project_number: "",
-    project_name: "",
+    project_number: "", // display only
+    project_name: "", // display only
+    project_manager: "", // display only
     trade: "M",
     rfi_name: "",
     rfi_number: "",
-    project_manager: "",
-    assigned_to: "",
+    assigned_to: [], // <-- array of IDs
     received_date: "",
     due_date: "",
     remarks: "",
-  });
+  };
 
+  const [formData, setFormData] = useState(initialForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
 
+  // Load projects
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN);
     if (!token) {
@@ -33,28 +37,19 @@ const useCreateRfi = () => {
 
     const fetchProjects = async () => {
       try {
-        const response = await api.get("/api/projects/");
-        if (response.data && Array.isArray(response.data)) {
-          setProjects(response.data);
-        } else if (
-          response.data &&
-          response.data.message === "There are no projects"
-        ) {
-          setError("No projects found. Please create a project first.");
-          setProjects([]);
+        const res = await api.get("/api/projects/");
+        if (Array.isArray(res.data)) {
+          setProjects(res.data);
         } else {
-          setError("Invalid response format from server");
+          setError("Invalid response format from server.");
+          setProjects([]);
         }
       } catch (err) {
-        if (err.response) {
-          if (err.response.status === 401) {
-            setError("Authentication failed. Please log in again.");
-            navigate("/login");
-          } else {
-            setError(err.response.data?.message || "Failed to load projects");
-          }
+        if (err.response?.status === 401) {
+          setError("Authentication failed. Please log in again.");
+          navigate("/login");
         } else {
-          setError("Network error. Please check your connection.");
+          setError(err.response?.data?.message || "Failed to load projects");
         }
       }
     };
@@ -62,51 +57,87 @@ const useCreateRfi = () => {
     fetchProjects();
   }, [navigate]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  // When a project is chosen: fill display fields + fetch its members
+  const handleProjectSelect = async (e) => {
+    const value = e.target.value;
+    const projectId = value ? Number(value) : "";
 
-    if (name === "project") {
-      const selectedProject = projects.find(
-        (project) => project.id.toString() === value
-      );
+    const proj = projects.find((p) => p.id === projectId);
 
-      setFormData((prev) => ({
-        ...prev,
-        project: value,
-        project_name: selectedProject?.project_name || "",
-        project_number: selectedProject?.project_number || "",
-        project_manager: selectedProject?.project_manager || "",
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      project: projectId,
+      project_number: proj?.project_number || "",
+      project_name: proj?.project_name || "",
+      project_manager: proj?.project_manager_name || "",
+      assigned_to: [], // reset selections on project change
+    }));
+
+    setProjectMembers([]);
+    if (projectId) {
+      console.log(projectId);
+      try {
+        const res = await api.get(`/api/projects/${projectId}/members/`);
+        setProjectMembers(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setProjectMembers([]);
+      }
     }
   };
 
+  // Generic field handler + multi-select support
+  const handleChange = (e) => {
+    const { name, value, multiple, selectedOptions } = e.target;
+
+    if (name === "assigned_to") {
+      const ids = multiple
+        ? Array.from(selectedOptions).map((o) => Number(o.value))
+        : value
+        ? [Number(value)]
+        : [];
+      setFormData((prev) => ({ ...prev, assigned_to: ids }));
+      return;
+    }
+
+    if (name === "project") {
+      // If you decide not to use handleProjectSelect on the select element,
+      // we still support project change here (no member fetch in this path).
+      const proj = projects.find((p) => p.id.toString() === value);
+      setFormData((prev) => ({
+        ...prev,
+        project: value ? Number(value) : "",
+        project_number: proj?.project_number || "",
+        project_name: proj?.project_name || "",
+        project_manager: proj?.project_manager_name || "",
+        assigned_to: [],
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Client-side validation
   const validateForm = () => {
     const errors = [];
-
     if (!formData.project) errors.push("Project is required");
-    // if (!formData.project_number) errors.push("Project number is required");
-    // if (!formData.project_name) errors.push("Project name is required");
     if (!formData.rfi_name) errors.push("RFI name is required");
     if (!formData.rfi_number) errors.push("RFI number is required");
-    if (!formData.project_manager) errors.push("Project manager is required");
-    if (!formData.assigned_to) errors.push("Assigned to is required");
+    // project_manager is display-only; don't require it
+    if (!formData.assigned_to || formData.assigned_to.length === 0)
+      errors.push("At least one assignee is required");
     if (!formData.received_date) errors.push("Received date is required");
     if (!formData.due_date) errors.push("Due date is required");
 
-    // Validate dates
     if (formData.received_date && formData.due_date) {
       const received = new Date(formData.received_date);
       const due = new Date(formData.due_date);
-      if (due < received) {
-        errors.push("Due date must be after received date");
-      }
+      if (due < received) errors.push("Due date must be after received date");
     }
-
     return errors;
   };
 
+  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -120,30 +151,32 @@ const useCreateRfi = () => {
       return;
     }
 
+    // Send only what the backend expects
+    const payload = {
+      project: formData.project,
+      trade: formData.trade,
+      rfi_name: formData.rfi_name,
+      rfi_number: formData.rfi_number,
+      assigned_to: formData.assigned_to, // array of IDs
+      received_date: formData.received_date,
+      due_date: formData.due_date,
+      remarks: formData.remarks,
+    };
+
     try {
-      await api.post("/api/rfis-create/", formData, {
+      await api.post("/api/rfis/", payload, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem(ACCESS_TOKEN)}`,
         },
       });
+
       setSuccess(true);
-      setFormData({
-        project: "",
-        project_number: "",
-        project_name: "",
-        trade: "M",
-        rfi_name: "",
-        rfi_number: "",
-        project_manager: "",
-        assigned_to: "",
-        received_date: "",
-        due_date: "",
-        remarks: "",
-      });
-      navigate("/"); // Redirect to the home page
+      setFormData(initialForm);
+      setProjectMembers([]);
+      navigate("/"); // or navigate to the RFI list page you prefer
     } catch (err) {
       if (err.response) {
-        const errorMessages = Object.entries(err.response.data)
+        const errorMessages = Object.entries(err.response.data || {})
           .map(
             ([field, errors]) =>
               `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`
@@ -162,11 +195,14 @@ const useCreateRfi = () => {
 
   return {
     formData,
+    setFormData, // expose so the form can do custom updates if needed
     error,
     success,
     loading,
     projects,
+    projectMembers, // list used to render the Assigned To dropdown
     handleChange,
+    handleProjectSelect, // call this on the Project <select> onChange
     handleSubmit,
   };
 };
