@@ -18,6 +18,7 @@ Let's automate shall we? ▶️⚙️🔥
 - Allowing users to create the profiles and join a project
 - Chat section under RFIs to allow discussions
 - Notification bell for designers
+- Project section shows who RFIs are assigned to
 
 ## Roadmap 🛣️
 - AI Integration for reading emails from contractors and determining the trade for the RFI
