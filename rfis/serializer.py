@@ -3,7 +3,6 @@ from rest_framework import serializers
 from .models import Rfi, Project, Member, ProjectMembership
 
 
-# ---------- User ----------
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
@@ -13,8 +12,6 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         return get_user_model().objects.create_user(**validated_data)
 
-
-# ---------- Member ----------
 class MemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = Member
@@ -23,8 +20,6 @@ class MemberSerializer(serializers.ModelSerializer):
             "user": {"read_only": True},  # set from request if you expose create member API
         }
 
-
-# ---------- RFI ----------
 class RfiSerializer(serializers.ModelSerializer):
     project_number = serializers.CharField(source="project.project_number", read_only=True)
     project_name = serializers.CharField(source="project.project_name", read_only=True)
@@ -79,8 +74,6 @@ class RfiSerializer(serializers.ModelSerializer):
             rfi.assigned_to.set(assignees)
         return rfi
 
-
-# ---------- Project Membership (optional API surface) ----------
 class ProjectMembershipSerializer(serializers.ModelSerializer):
     member = MemberSerializer(read_only=True)
     member_id = serializers.PrimaryKeyRelatedField(source="member", queryset=Member.objects.all(), write_only=True)
@@ -90,8 +83,6 @@ class ProjectMembershipSerializer(serializers.ModelSerializer):
         fields = ["id", "project", "member", "member_id", "role", "discipline", "is_project_admin", "joined_at"]
         read_only_fields = ["id", "joined_at", "project"]
 
-
-# ---------- Project ----------
 class ProjectSerializer(serializers.ModelSerializer):
     # annotate rfi_count in the queryset (preferred); or use a method field
     rfi_count = serializers.IntegerField(read_only=True)

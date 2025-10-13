@@ -5,7 +5,8 @@ from .views import (
     RfiListCreate, RfiDetail,
     MemberListCreate, MemberDetail,
     ProjectMembershipListCreate, ProjectMembershipDetail,   # add this import
-    ProjectMembers
+    ProjectMembers,
+    ChatGPTCompletion,
 )
 
 app_name = "rfis"
@@ -34,4 +35,7 @@ urlpatterns = [
     # ----- Project Memberships (through table) -----
     path("memberships/", ProjectMembershipListCreate.as_view(), name="membership-list"),
     path("memberships/<int:pk>/", ProjectMembershipDetail.as_view(), name="membership-detail"),
+
+    # ----- AI -----
+    path("ai/chat/", ChatGPTCompletion.as_view(), name="ai-chat"),
 ]

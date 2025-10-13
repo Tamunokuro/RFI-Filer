@@ -315,3 +315,71 @@ class ProjectMembershipDetail(APIView):
     def delete(self, request, pk):
         self.get_object(pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- AI (ChatGPT) ----------
+
+class ChatGPTCompletion(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """
+        POST body options:
+          - prompt (str): user prompt (required if messages not provided)
+          - system (str): optional system instruction
+          - model (str): defaults to gpt-4o-mini
+          - temperature (float): defaults to 0.7
+          - max_tokens (int): defaults to 512
+          - rfi_id (int): if provided, include RFI context in system message
+          - messages (list[{role, content}]): optional full messages list
+        """
+        data = request.data or {}
+        model = data.get("model", "gpt-4o-mini")
+        temperature = float(data.get("temperature", 0.7))
+        max_tokens = int(data.get("max_tokens", 512))
+
+        messages = data.get("messages")
+        prompt = data.get("prompt")
+        system = data.get("system")
+        rfi_id = data.get("rfi_id")
+
+        built_messages = []
+        # Build optional context from an RFI record
+        if rfi_id:
+            rfi = get_object_or_404(
+                Rfi.objects.select_related("project").prefetch_related("assigned_to"), pk=rfi_id
+            )
+            rfi_ctx = build_rfi_context(rfi)
+            sys_base = (
+                "You are a helpful assistant for construction project RFIs. "
+                "Use the provided RFI context to draft clear, concise responses; "
+                "call out missing info and propose next steps when appropriate.\n\n"
+            )
+            system = f"{sys_base}RFI Context:\n{rfi_ctx}\n" + (f"\nAdditional Instruction:\n{system}" if system else "")
+
+        if messages and isinstance(messages, list):
+            built_messages = messages
+        else:
+            if system:
+                built_messages.append({"role": "system", "content": system})
+            if not prompt:
+                return Response({"detail": "Either provide 'messages' or a 'prompt'."}, status=400)
+            built_messages.append({"role": "user", "content": prompt})
+
+        try:
+            content, usage = chatgpt_chat(
+                messages=built_messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        except ChatGPTError as e:
+            return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return Response({"detail": f"Unexpected error: {e}"}, status=500)
+
+        return Response({
+            "model": model,
+            "message": content,
+            "usage": usage,
+        })
