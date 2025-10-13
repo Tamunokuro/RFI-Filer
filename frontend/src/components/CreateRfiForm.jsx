@@ -4,11 +4,14 @@ import DateInput from "./DateSelector";
 const CreateRfiForm = () => {
   const {
     formData,
+    setFormData, // <-- new
     error,
     success,
     loading,
     projects,
+    projectMembers, // <-- new
     handleChange,
+    handleProjectSelect, // <-- new
     handleSubmit,
   } = useCreateRfi();
 
@@ -41,7 +44,7 @@ const CreateRfiForm = () => {
               id="project"
               name="project"
               value={formData.project}
-              onChange={handleChange}
+              onChange={handleProjectSelect} // <-- use custom handler
               required
               className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
             >
@@ -54,16 +57,14 @@ const CreateRfiForm = () => {
             </select>
           </div>
 
-          {/* Text Inputs */}
+          {/* Display + text fields (read-only where appropriate) */}
           {[
-            { name: "project_number", label: "Project Number" },
-            { name: "project_name", label: "Project Name" },
+            { name: "project_number", label: "Project Number", ro: true },
+            { name: "project_name", label: "Project Name", ro: true },
             { name: "rfi_name", label: "RFI Name" },
-            { name: "project_manager", label: "Project Manager" },
+            { name: "project_manager", label: "Project Manager", ro: true },
             { name: "rfi_number", label: "RFI Number" },
-            // { name: "client_rfi_number", label: "Client RFI Number" },
-            { name: "assigned_to", label: "Assigned To" },
-          ].map(({ name, label }) => (
+          ].map(({ name, label, ro }) => (
             <div key={name}>
               <label
                 htmlFor={name}
@@ -75,24 +76,51 @@ const CreateRfiForm = () => {
                 type="text"
                 name={name}
                 id={name}
-                value={formData[name]}
+                value={formData[name] ?? ""}
                 onChange={handleChange}
-                readOnly={
-                  name === "project_number" ||
-                  name === "project_name" ||
-                  name === "project_manager"
-                }
+                readOnly={!!ro}
                 className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                required={name !== "client_rfi_number"}
+                required
               />
             </div>
           ))}
 
-          {/* Discipline */}
+          {/* Assigned To (multi-select fed by project members) */}
+          <div>
+            <label
+              htmlFor="assigned_to"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Assigned To
+            </label>
+            <select
+              id="assigned_to"
+              name="assigned_to"
+              multiple
+              value={formData.assigned_to || []} // array of IDs
+              onChange={handleChange} // hook handles multi-select
+              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+            >
+              {projectMembers.length === 0 && (
+                <option disabled>No members found for this project</option>
+              )}
+              {projectMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                  {m.role ? ` — ${m.role}` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Hold Ctrl/Cmd to select multiple.
+            </p>
+          </div>
+
+          {/* Discipline / Trade */}
           <div>
             <label
               htmlFor="trade"
-              className="block text-sm/6 font-medium text-gray-900 text-sm font-medium text-gray-700"
+              className="block text-sm/6 font-medium text-gray-900"
             >
               Discipline
             </label>
@@ -111,46 +139,6 @@ const CreateRfiForm = () => {
             </select>
           </div>
 
-          {/* Subject */}
-          <div>
-            <label
-              htmlFor="subject"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Subject
-            </label>
-            <textarea
-              id="subject"
-              name="subject"
-              rows={3}
-              value={formData.subject}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
-              placeholder="Enter the subject"
-            ></textarea>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label
-              htmlFor="status"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
-            >
-              <option value="">Select Status</option>
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-            </select>
-          </div>
-
           {/* Dates */}
           <div className="flex justify-between space-x-4">
             <DateInput
@@ -160,7 +148,6 @@ const CreateRfiForm = () => {
               onChange={handleChange}
               required
             />
-
             <DateInput
               label="Due Date"
               name="due_date"
@@ -186,10 +173,10 @@ const CreateRfiForm = () => {
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
               placeholder="Any additional notes..."
-            ></textarea>
+            />
           </div>
 
-          {/* Attachments */}
+          {/* Attachments (optional) */}
           <div>
             <label
               htmlFor="attachments"
@@ -203,7 +190,11 @@ const CreateRfiForm = () => {
               name="attachments"
               multiple
               onChange={(e) => {
-                setFormData({ ...formData, attachments: e.target.files });
+                // only works because the hook exposes setFormData
+                setFormData((prev) => ({
+                  ...prev,
+                  attachments: e.target.files,
+                }));
               }}
               className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />

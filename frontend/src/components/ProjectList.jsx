@@ -70,7 +70,9 @@ const ProjectList = () => {
   }, [navigate]);
 
   const filteredProjects = projects.filter((project) =>
-    `${project.project_name} ${project.project_number} ${project.project_manager}`
+    `${project.project_name} ${project.project_number} ${
+      project.project_manager_name || ""
+    }`
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
   );
@@ -98,7 +100,7 @@ const ProjectList = () => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
-              placeholder="Search Projects..."
+              placeholder="Search using project name, number, or manager..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -127,7 +129,7 @@ const ProjectList = () => {
                       {project.project_number} - {project.project_name}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Project Manager: {project.project_manager}
+                      Project Manager: {project.project_manager_name}
                     </p>
                     <p className="text-sm text-gray-600">
                       RFIs: {project.rfi_count || 0}
@@ -160,7 +162,13 @@ const ProjectList = () => {
                               RFI Number: {rfi.rfi_number}
                             </p>
                             <p className="text-sm">
-                              Assigned To: {rfi.assigned_to}
+                              Assigned To:{" "}
+                              {Array.isArray(rfi.assigned_to_detail) &&
+                              rfi.assigned_to_detail.length
+                                ? rfi.assigned_to_detail
+                                    .map((m) => m.name)
+                                    .join(", ")
+                                : "—"}
                             </p>
                             <p className="text-sm">Due: {rfi.due_date}</p>
                             {isOverdue(rfi.due_date) && (

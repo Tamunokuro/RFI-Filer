@@ -3,13 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api"; // Axios instance with token headers
 
 const UpdateRfiForm = () => {
-  const { pk, slug } = useParams();
+  const { pk } = useParams();
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     project_name: "",
     project_number: "",
     project_manager: "",
-    assigned_to: "",
+    assigned_to: [], // keep IDs as an array
+    assigned_to_names: "", // <- derived display string
     trade: "",
     rfi_name: "",
     rfi_number: "",
@@ -18,8 +20,8 @@ const UpdateRfiForm = () => {
     due_date: "",
     remarks: "",
     status: "",
-    // Add all other necessary fields
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,17 +29,38 @@ const UpdateRfiForm = () => {
   useEffect(() => {
     const fetchRfi = async () => {
       try {
-        const response = await api.get(`/api/rfis/${pk}/${slug}/`);
-        setFormData(response.data);
+        const { data } = await api.get(`/api/rfis/${pk}/`); // no slug in URL
+        const names = Array.isArray(data.assigned_to_detail)
+          ? data.assigned_to_detail.map((m) => m.name).join(", ")
+          : "";
+
+        setFormData((prev) => ({
+          ...prev,
+          project_name: data.project_name ?? "",
+          project_number: data.project_number ?? "",
+          project_manager:
+            data.project_manager_name ?? prev.project_manager ?? "",
+          assigned_to: Array.isArray(data.assigned_to) ? data.assigned_to : [],
+          assigned_to_names: names,
+          trade: data.trade ?? "",
+          rfi_name: data.rfi_name ?? "",
+          rfi_number: data.rfi_number ?? "",
+          subject: data.subject ?? "",
+          received_date: data.received_date ?? "",
+          due_date: data.due_date ?? "",
+          remarks: data.remarks ?? "",
+          status: data.status ?? "",
+        }));
       } catch (err) {
         setError("Failed to load RFI data.");
       }
     };
     fetchRfi();
-  }, [pk, slug]);
+  }, [pk]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // If you later switch Assigned To to a multi-select, handle arrays here.
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -46,9 +69,20 @@ const UpdateRfiForm = () => {
     setLoading(true);
     setError("");
 
+    // Send only fields the API expects; do not send *_names display-only fields
+    const payload = {
+      trade: formData.trade,
+      rfi_name: formData.rfi_name,
+      rfi_number: formData.rfi_number,
+      assigned_to: formData.assigned_to, // remains array of IDs
+      received_date: formData.received_date,
+      due_date: formData.due_date,
+      remarks: formData.remarks,
+    };
+
     try {
-      await api.patch(`/api/rfis/${pk}/${slug}/`, formData);
-      navigate("/"); // Redirect to RFI list page
+      await api.patch(`/api/rfis/${pk}/`, payload);
+      navigate("/");
     } catch (err) {
       setError("Update failed.");
     } finally {
@@ -74,6 +108,7 @@ const UpdateRfiForm = () => {
               value={formData.project_name}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              readOnly
             />
           </div>
 
@@ -98,7 +133,7 @@ const UpdateRfiForm = () => {
               value={formData.rfi_number}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              disabled // RFI number should not be editable
+              disabled
             />
           </div>
 
@@ -108,12 +143,16 @@ const UpdateRfiForm = () => {
             </label>
             <input
               type="text"
-              name="assigned_to"
-              value={formData.assigned_to}
+              name="assigned_to_names"
+              value={formData.assigned_to_names}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              readOnly
             />
+            {/* If you want to *edit* assignees here, replace the above with a multi-select
+                bound to formData.assigned_to (array of IDs), just like the Create form. */}
           </div>
+
           <div>
             <label className="block font-medium text-gray-700">
               Project Manager
@@ -124,6 +163,7 @@ const UpdateRfiForm = () => {
               value={formData.project_manager}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              readOnly
             />
           </div>
 
