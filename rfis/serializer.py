@@ -3,14 +3,75 @@ from rest_framework import serializers
 from .models import Rfi, Project, Member, ProjectMembership
 
 
-class UserSerializer(serializers.ModelSerializer):
+User = get_user_model()
+
+class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    # Member fields
+    name = serializers.CharField(max_length=100)
+    company = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    discipline = serializers.ChoiceField(
+        choices=Member.Discipline.choices, required=False, allow_blank=True
+    )
+    role = serializers.ChoiceField(choices=Member.Role.choices)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+
     class Meta:
-        model = get_user_model()
-        fields = ["id", "username", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "password",
+            "confirm_password",
+            "name",
+            "company",
+            "discipline",
+            "role",
+            "phone",
+        ]
+        extra_kwargs = {
+            "password": {"write_only": True, "min_length": 8},
+        }
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        if Member.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A member with this email already exists.")
+        return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "Passwords do not match."}
+            )
+        return attrs
 
     def create(self, validated_data):
-        return get_user_model().objects.create_user(**validated_data)
+        confirm_password = validated_data.pop("confirm_password")
+        name = validated_data.pop("name")
+        company = validated_data.pop("company", "")
+        discipline = validated_data.pop("discipline", "")
+        role = validated_data.pop("role")
+        phone = validated_data.pop("phone", "")
+        email = validated_data["email"]
+
+        user = User.objects.create_user(**validated_data)
+
+        Member.objects.create(
+            user=user,
+            name=name,
+            email=email,
+            company=company,
+            discipline=discipline,
+            role=role,
+            phone=phone,
+        )
+
+        return user
 
 class MemberSerializer(serializers.ModelSerializer):
     class Meta:

@@ -2,14 +2,15 @@ import { useAuth } from "../context/Auth";
 import { useNavigate } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
 import { FolderOpenIcon } from "@heroicons/react/24/outline";
-
 import { useState, useEffect, useRef } from "react";
 
 const Header = ({ title }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const { isAuthenticated, username, logout } = useAuth();
+  const { isAuthenticated, username, displayName, logout } = useAuth();
+
+  const shownName = displayName || username || "";
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -17,9 +18,15 @@ const Header = ({ title }) => {
         setDropdownOpen(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleLogout = () => {
+    setDropdownOpen(false);
+    logout(navigate);
+  };
 
   return (
     <div className="flex justify-between items-center my-5 relative">
@@ -50,7 +57,7 @@ const Header = ({ title }) => {
 
         <div className="relative">
           <UserCircleIcon
-            onClick={() => setDropdownOpen(!dropdownOpen)}
+            onClick={() => setDropdownOpen((prev) => !prev)}
             className="w-8 h-8 text-blue-900 hover:text-indigo-950 cursor-pointer"
           />
 
@@ -58,19 +65,23 @@ const Header = ({ title }) => {
             <div className="absolute right-0 mt-2 w-52 bg-neutral-50 rounded border border-slate-200 shadow-lg z-10 p-3">
               <div className="text-sm mb-2 border-b border-gray-200 pb-2">
                 <p className="font-semibold text-gray-400">
-                  {isAuthenticated ? `Filer: ${username}` : "Not logged in"}
+                  {isAuthenticated ? `Filer: ${shownName}` : "Not logged in"}
                 </p>
               </div>
+
               {isAuthenticated ? (
                 <button
-                  onClick={() => logout(navigate)}
+                  onClick={handleLogout}
                   className="block w-full font-semibold text-left px-2 py-2 text-sm text-red-600 rounded transition duration-150 hover:bg-gray-100"
                 >
                   Logout
                 </button>
               ) : (
                 <button
-                  onClick={() => navigate("/login")}
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    navigate("/login");
+                  }}
                   className="block w-full font-semibold text-left px-2 py-2 text-sm text-blue-700 rounded transition duration-150 hover:bg-gray-100"
                 >
                   Login
