@@ -53,6 +53,7 @@ const Login = () => {
         refresh,
         username: user.username,
         displayName: user.member?.name || user.username,
+        memberId: user.member?.id || "",
       });
 
       toast.success("Login successful.");

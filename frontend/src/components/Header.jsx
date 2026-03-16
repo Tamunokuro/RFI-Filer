@@ -1,5 +1,5 @@
 import { useAuth } from "../context/Auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
 import { FolderOpenIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
@@ -8,7 +8,8 @@ const Header = ({ title }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const { isAuthenticated, username, displayName, logout } = useAuth();
+  const { isAuthenticated, username, displayName, memberId, logout } =
+    useAuth();
 
   const shownName = displayName || username || "";
 
@@ -70,12 +71,22 @@ const Header = ({ title }) => {
               </div>
 
               {isAuthenticated ? (
-                <button
-                  onClick={handleLogout}
-                  className="block w-full font-semibold text-left px-2 py-2 text-sm text-red-600 rounded transition duration-150 hover:bg-gray-100"
-                >
-                  Logout
-                </button>
+                <div className="space-y-1">
+                  <Link
+                    to={`/members/${memberId}`}
+                    onClick={() => setDropdownOpen(false)}
+                    className="block w-full font-semibold text-left px-2 py-2 text-sm text-blue-700 rounded transition duration-150 hover:bg-gray-100"
+                  >
+                    Profile
+                  </Link>
+
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full font-semibold text-left px-2 py-2 text-sm text-red-600 rounded transition duration-150 hover:bg-gray-100"
+                  >
+                    Logout
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => {

@@ -17,6 +17,9 @@ from .models import Project, Rfi, Member, ProjectMembership
 from .serializer import (
     ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer
 )
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializer import CustomTokenObtainPairSerializer
+
 
 
 User = get_user_model()
@@ -442,6 +445,11 @@ class ProjectMembershipDetail(APIView):
     def delete(self, request, pk):
         self.get_object(pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+#-----Customer Token Pair--------
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 # ---------- AI (ChatGPT) ----------

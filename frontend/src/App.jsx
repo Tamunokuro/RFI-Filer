@@ -13,6 +13,7 @@ import ProjectList from "./components/ProjectList";
 
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import MemberDetail from "./pages/MemberDetail";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -56,6 +57,14 @@ function App() {
           element={
             <PrivateRoute>
               <ProjectList />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/members/:id"
+          element={
+            <PrivateRoute>
+              <MemberDetail />
             </PrivateRoute>
           }
         />

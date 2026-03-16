@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Rfi, Project, Member, ProjectMembership
-
+from .models import Rfi, Project, Member, ProjectMembership, Member
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -158,3 +158,23 @@ class ProjectSerializer(serializers.ModelSerializer):
             "rfi_count", "rfis", "slug",
         ]
         read_only_fields = ["slug"]
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        return super().get_token(user)
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        data["username"] = self.user.username
+
+        try:
+            member = Member.objects.get(user=self.user)
+            data["member_id"] = member.id
+            data["display_name"] = member.name or self.user.username
+        except Member.DoesNotExist:
+            data["member_id"] = None
+            data["display_name"] = self.user.username
+
+        return data
