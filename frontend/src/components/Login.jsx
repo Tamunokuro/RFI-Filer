@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
+import { toast } from "react-toastify";
 
 import {
   ArrowRightIcon,
@@ -22,6 +23,7 @@ const Login = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setError("");
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -35,15 +37,33 @@ const Login = () => {
       const access = response.data.access;
       const refresh = response.data.refresh;
 
-      // Store tokens and username using context
-      localStorage.setItem(REFRESH_TOKEN, refresh);
       localStorage.setItem(ACCESS_TOKEN, access);
-      login(access, formData.username);
+      localStorage.setItem(REFRESH_TOKEN, refresh);
 
+      const meResponse = await api.get("/api/me/", {
+        headers: {
+          Authorization: `Bearer ${access}`,
+        },
+      });
+
+      const user = meResponse.data;
+
+      login({
+        access,
+        refresh,
+        username: user.username,
+        displayName: user.member?.name || user.username,
+        memberId: user.member?.id || "",
+      });
+
+      toast.success("Login successful.");
       navigate("/");
     } catch (err) {
       console.error(err);
-      setError("Invalid username or password");
+      const message =
+        err.response?.data?.detail || "Invalid username or password";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -57,6 +77,7 @@ const Login = () => {
       <div className="form-background"></div>
       <div className="form-decoration decoration-1"></div>
       <div className="form-decoration decoration-2"></div>
+
       <div className="form-container">
         {error && (
           <div className="flex justify-center">
@@ -68,7 +89,6 @@ const Login = () => {
         )}
 
         <form onSubmit={handleSubmit} className="mt-10 max-w-md mx-auto p-6">
-          {/* Username input */}
           <div className="sm:col-span-4">
             <label
               htmlFor="username"
@@ -89,12 +109,12 @@ const Login = () => {
                   value={formData.username}
                   className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
                   placeholder="janesmith"
+                  required
                 />
               </div>
             </div>
           </div>
 
-          {/* Password input */}
           <div className="sm:col-span-4 mt-4">
             <label
               htmlFor="password"
@@ -111,8 +131,18 @@ const Login = () => {
                 value={formData.password}
                 className="w-full py-1.5 px-3 border border-gray-300 rounded-md text-gray-900"
                 placeholder="••••••••"
+                required
               />
             </div>
+          </div>
+
+          <div className="mt-3 text-sm">
+            <Link
+              to="/forgot-password"
+              className="text-blue-700 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </div>
 
           <button
@@ -130,6 +160,13 @@ const Login = () => {
             )}
             <ArrowRightIcon className="w-6 h-6" />
           </button>
+
+          <p className="mt-4 text-sm text-center">
+            Don&apos;t have an account?{" "}
+            <Link to="/register" className="text-blue-700 hover:underline">
+              Register
+            </Link>
+          </p>
         </form>
       </div>
     </div>

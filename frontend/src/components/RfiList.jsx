@@ -63,8 +63,8 @@ const RfiList = () => {
   };
 
   return (
-    <div className="form-wrapper flex flex-col min-h-screen">
-      <div className="form-container max-w-7xl mx-auto">
+    <div className="min-h-screen flex flex-col">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <Header title="RFI List" />
 
         {/* Search bar */}

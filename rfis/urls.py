@@ -4,9 +4,13 @@ from .views import (
     ProjectListCreate, ProjectDetail,
     RfiListCreate, RfiDetail,
     MemberListCreate, MemberDetail,
-    ProjectMembershipListCreate, ProjectMembershipDetail,   # add this import
+    ProjectMembershipListCreate, ProjectMembershipDetail,
     ProjectMembers,
     ChatGPTCompletion,
+    MeView,
+    ForgotPasswordView,
+    ResetPasswordView,
+    CustomTokenObtainPairView,
 )
 
 app_name = "rfis"
@@ -30,7 +34,7 @@ urlpatterns = [
 
     # ----- Members -----
     path("members/", MemberListCreate.as_view(), name="member-list"),
-    path("members/<int:pk>/", MemberDetail.as_view(), name="member-detail"),
+    path("members/<int:pk>/", MemberDetail.as_view(), name="member_detail"),
 
     # ----- Project Memberships (through table) -----
     path("memberships/", ProjectMembershipListCreate.as_view(), name="membership-list"),
@@ -38,4 +42,12 @@ urlpatterns = [
 
     # ----- AI -----
     path("ai/chat/", ChatGPTCompletion.as_view(), name="ai-chat"),
+
+    # ----- Password Reset -----
+    path("me/", MeView.as_view(), name="me"),
+    path("auth/forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
+    path("auth/reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+
+    # ----- Custom Token Pair -----
+    path("api/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
 ]

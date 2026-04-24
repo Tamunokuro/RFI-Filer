@@ -6,22 +6,152 @@ from rest_framework import status, permissions
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 from django.db import IntegrityError
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes, force_str
+from django.conf import settings
 
 from .models import Project, Rfi, Member, ProjectMembership
 from .serializer import (
-    ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, UserSerializer
+    ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer
 )
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializer import CustomTokenObtainPairSerializer
+
+
+
+User = get_user_model()
 
 class UserCreateView(APIView):
-    permission_classes = [permissions.AllowAny]  # allow registration without auth
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            data = UserSerializer(user).data  # password is write_only, so it won't be returned
-            return Response(data, status=status.HTTP_201_CREATED)
+            member = user.member
+
+            return Response(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "member": {
+                        "id": member.id,
+                        "name": member.name,
+                        "email": member.email,
+                        "role": member.role,
+                        "company": member.company,
+                        "discipline": member.discipline,
+                        "phone": member.phone,
+                        "is_admin": member.is_admin,
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class MeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        member = getattr(user, "member", None)
+
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "member": {
+                "id": member.id,
+                "name": member.name,
+                "email": member.email,
+                "role": member.role,
+                "company": member.company,
+                "discipline": member.discipline,
+                "phone": member.phone,
+                "is_admin": member.is_admin,
+            } if member else None
+        })
+    
+class ForgotPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        generic_response = {
+            "detail": "If an account with that email exists, a reset link has been sent."
+        }
+
+        if not email:
+            return Response(
+                {"email": ["Email is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response(generic_response, status=status.HTTP_200_OK)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+
+        send_mail(
+            subject="Reset your password",
+            message=f"Use this link to reset your password:\n{reset_link}",
+            from_email=None,
+            recipient_list=[user.email],
+        )
+
+        return Response(generic_response, status=status.HTTP_200_OK)
+    
+class ResetPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        uid = request.data.get("uid")
+        token = request.data.get("token")
+        password = request.data.get("password")
+        confirm_password = request.data.get("confirm_password")
+
+        if not all([uid, token, password, confirm_password]):
+            return Response(
+                {"detail": "uid, token, password, and confirm_password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if password != confirm_password:
+            return Response(
+                {"confirm_password": ["Passwords do not match."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
+        except Exception:
+            return Response(
+                {"detail": "Invalid reset link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"detail": "Invalid or expired token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(password)
+        user.save()
+
+        return Response(
+            {"detail": "Password reset successful."},
+            status=status.HTTP_200_OK,
+        )
     
 class StandardPagination(PageNumberPagination):
     page_size = 10
@@ -315,6 +445,11 @@ class ProjectMembershipDetail(APIView):
     def delete(self, request, pk):
         self.get_object(pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+#-----Customer Token Pair--------
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 # ---------- AI (ChatGPT) ----------

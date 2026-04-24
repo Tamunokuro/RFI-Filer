@@ -46,3 +46,23 @@
   background-color: #f8d7da;
   color: #721c24;
 }
+
+.form-error {
+  color: #dc2626;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+.form-footer-links {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.form-footer-links a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.form-footer-links a:hover {
+  text-decoration: underline;
+}
