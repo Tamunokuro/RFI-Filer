@@ -7,6 +7,8 @@ import RFiDeleteButton from "./DeleteButton";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import Header from "./Header";
 
+const UNREAD_POLL_MS = 30000;
+
 const RfiList = () => {
   const navigate = useNavigate();
   const [rfis, setRfis] = useState([]);
@@ -17,6 +19,7 @@ const RfiList = () => {
   const [next, setNext] = useState(null);
   const [prev, setPrev] = useState(null);
   const [count, setCount] = useState(0);
+  const [unreadMap, setUnreadMap] = useState({});
   const pageSize = 10;
 
   useEffect(() => {
@@ -46,6 +49,24 @@ const RfiList = () => {
     fetchRfis();
   }, [navigate, page, searchTerm]);
 
+  useEffect(() => {
+    const token = localStorage.getItem(ACCESS_TOKEN);
+    if (!token) return;
+
+    const fetchUnread = async () => {
+      try {
+        const { data } = await api.get("/api/rfis/unread-summary/");
+        setUnreadMap(data || {});
+      } catch (err) {
+        /* non-fatal */
+      }
+    };
+
+    fetchUnread();
+    const id = setInterval(fetchUnread, UNREAD_POLL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   const formatDate = (dateString) => {
     if (!dateString) return "";
     return new Date(dateString).toLocaleDateString();
@@ -60,6 +81,30 @@ const RfiList = () => {
     if (diffDays < 0) return "bg-red-100 text-red-800";
     if (diffDays <= 3) return "bg-yellow-100 text-yellow-800";
     return "bg-green-100 text-green-800";
+  };
+
+  const renderStatus = (rfi) => {
+    if (rfi.status === "closed") {
+      return (
+        <span
+          className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-700"
+          data-testid={`rfi-status-${rfi.id}`}
+        >
+          Closed
+        </span>
+      );
+    }
+    const overdue = new Date(rfi.due_date) < new Date();
+    return (
+      <span
+        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+          rfi.due_date
+        )}`}
+        data-testid={`rfi-status-${rfi.id}`}
+      >
+        {overdue ? "Overdue" : "Active"}
+      </span>
+    );
   };
 
   return (
@@ -111,17 +156,32 @@ const RfiList = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {rfis.map((rfi) => (
+              {rfis.map((rfi) => {
+                const unread = Number(unreadMap[String(rfi.id)] || 0);
+                return (
                 <tr
                   key={rfi.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}
+                  className={`hover:bg-gray-50 cursor-pointer ${
+                    rfi.status === "closed" ? "opacity-70" : ""
+                  }`}
+                  onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
                 >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {rfi.project_number}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {rfi.rfi_number}
+                    <span className="inline-flex items-center gap-2">
+                      {rfi.rfi_number}
+                      {unread > 0 && (
+                        <span
+                          className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-semibold"
+                          title={`${unread} unread message${unread === 1 ? "" : "s"}`}
+                          data-testid={`rfi-unread-${rfi.id}`}
+                        >
+                          {unread}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.rfi_name}
@@ -143,17 +203,7 @@ const RfiList = () => {
                       ? rfi.assigned_to_detail.map((m) => m.name).join(", ")
                       : "—"}
                   </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                        rfi.due_date
-                      )}`}
-                    >
-                      {new Date(rfi.due_date) < new Date()
-                        ? "Overdue"
-                        : "Active"}
-                    </span>
-                  </td>
+                  <td className="px-6 py-4">{renderStatus(rfi)}</td>
                   <td
                     className="px-4 py-4"
                     onClick={(e) => e.stopPropagation()}
@@ -173,7 +223,8 @@ const RfiList = () => {
                     />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
