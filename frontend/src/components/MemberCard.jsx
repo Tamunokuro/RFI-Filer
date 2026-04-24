@@ -9,13 +9,15 @@ const MemberCard = ({ member }) => {
     <div className="max-w-md w-full rounded-2xl bg-white p-6 shadow-lg border border-gray-100 hover:shadow-xl transition duration-300">
       <div className="flex items-center gap-4 mb-6">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-900 to-indigo-700 text-white text-2xl font-bold uppercase shadow-md">
-          {member.user.username?.charAt(0)}
+          {member.name
+            ?.split(" ")
+            .map((part) => part.charAt(0).toUpperCase())
+            .slice(0, 2)
+            .join("")}
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {member.user.username}
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900">{member.name}</h2>
           <p className="text-sm text-gray-500">Profile Overview</p>
         </div>
       </div>
