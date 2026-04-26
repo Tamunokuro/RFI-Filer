@@ -126,7 +126,8 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
   const load = async () => {
     try {
       const { data } = await api.get(`/api/rfis/${rfiId}/attachments/`);
-      setAttachments(data || []);
+      // Official-response attachments are shown inside OfficialResponsePanel
+      setAttachments((data || []).filter((a) => !a.is_official_response));
     } catch (err) {
       toast.error("Unable to load attachments.");
     } finally {

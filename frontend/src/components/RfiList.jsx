@@ -32,7 +32,7 @@ const RfiList = () => {
     const fetchRfis = async () => {
       try {
         const response = await api.get("/api/rfis/", {
-          params: { page, search: searchTerm },
+          params: { page, search: searchTerm, status: "open" },
         });
         setRfis(response.data.results);
         setNext(response.data.next);
@@ -84,16 +84,6 @@ const RfiList = () => {
   };
 
   const renderStatus = (rfi) => {
-    if (rfi.status === "closed") {
-      return (
-        <span
-          className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-700"
-          data-testid={`rfi-status-${rfi.id}`}
-        >
-          Closed
-        </span>
-      );
-    }
     const overdue = new Date(rfi.due_date) < new Date();
     return (
       <span
@@ -161,9 +151,7 @@ const RfiList = () => {
                 return (
                 <tr
                   key={rfi.id}
-                  className={`hover:bg-gray-50 cursor-pointer ${
-                    rfi.status === "closed" ? "opacity-70" : ""
-                  }`}
+                  className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
                 >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">

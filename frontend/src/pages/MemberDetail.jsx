@@ -4,11 +4,15 @@ import api from "../api";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import MemberCard from "../components/MemberCard";
+import { useAuth } from "../context/Auth";
+import { toast } from "react-toastify";
 import {
   BriefcaseIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  PencilSquareIcon,
+  XMarkIcon,
 } from "@heroicons/react/20/solid";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
@@ -46,6 +50,9 @@ const statusMeta = (rfi) => {
 const MemberDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { memberId, login, isAuthenticated, username, role } = useAuth();
+  const isOwnProfile = isAuthenticated && String(memberId) === String(id);
+
   const [member, setMember] = useState(null);
   const [rfis, setRfis] = useState([]);
   const [page, setPage] = useState(1);
@@ -54,6 +61,12 @@ const MemberDetail = () => {
   const [count, setCount] = useState(0);
   const [rfiLoading, setRfiLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+
+  // Edit profile state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", email: "" });
+  const [editErrors, setEditErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api
@@ -82,6 +95,43 @@ const MemberDetail = () => {
     return true;
   });
 
+  const openEditForm = () => {
+    setEditForm({ name: member.name || "", email: member.email || "" });
+    setEditErrors({});
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async (e) => {
+    e.preventDefault();
+    setEditErrors({});
+    setSaving(true);
+    try {
+      const res = await api.patch("/api/me/", editForm);
+      const updated = res.data.member;
+      setMember((prev) => ({ ...prev, name: updated.name, email: updated.email }));
+      // Sync auth context so the header display name updates immediately
+      login({
+        access: localStorage.getItem("access"),
+        refresh: localStorage.getItem("refresh"),
+        username,
+        displayName: updated.name,
+        memberId,
+        role,
+      });
+      toast.success("Profile updated successfully.");
+      setEditOpen(false);
+    } catch (err) {
+      const data = err.response?.data;
+      if (data && typeof data === "object") {
+        setEditErrors(data);
+      } else {
+        setEditErrors({ non_field_errors: ["Failed to save. Please try again."] });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!member) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -108,8 +158,114 @@ const MemberDetail = () => {
 
         {/* Top section: card + summary stats */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-3">
             <MemberCard member={member} />
+
+            {/* Edit button — only visible on your own profile */}
+            {isOwnProfile && !editOpen && (
+              <button
+                onClick={openEditForm}
+                className="flex items-center gap-2 w-full justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition duration-150"
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+                Edit Profile
+              </button>
+            )}
+
+            {/* Inline edit form */}
+            {isOwnProfile && editOpen && (
+              <div className="rounded-xl border border-indigo-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Edit Profile</h3>
+                  <button
+                    onClick={() => setEditOpen(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                    title="Cancel"
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleEditSave} className="space-y-4">
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        editErrors.name ? "border-red-400" : "border-gray-300"
+                      }`}
+                      placeholder="Jane Smith"
+                      required
+                    />
+                    {editErrors.name && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {Array.isArray(editErrors.name)
+                          ? editErrors.name[0]
+                          : editErrors.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, email: e.target.value }))
+                      }
+                      className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        editErrors.email ? "border-red-400" : "border-gray-300"
+                      }`}
+                      placeholder="you@example.com"
+                      required
+                    />
+                    {editErrors.email && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {Array.isArray(editErrors.email)
+                          ? editErrors.email[0]
+                          : editErrors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Non-field errors */}
+                  {editErrors.non_field_errors && (
+                    <p className="text-xs text-red-600">
+                      {editErrors.non_field_errors[0]}
+                    </p>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 transition duration-150"
+                    >
+                      {saving ? "Saving…" : "Save Changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(false)}
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition duration-150"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-2 grid grid-cols-3 gap-4 content-start">
