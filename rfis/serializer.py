@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Rfi, Project, Member, ProjectMembership, Member
+from .models import Rfi, Project, Member, ProjectMembership, Member, RfiComment, RfiReadState, RfiAttachment
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -98,16 +98,23 @@ class RfiSerializer(serializers.ModelSerializer):
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     author = serializers.PrimaryKeyRelatedField(read_only=True)
 
-  
+    responded_by_name = serializers.CharField(source="responded_by.name", read_only=True, default="")
+
     class Meta:
         model = Rfi
         fields = [
             "id", "project", "project_number", "project_name", "project_manager_name",
             "author", "trade", "rfi_name", "rfi_number",
             "assigned_to", "assigned_to_detail",
-            "received_date", "due_date", "remarks", "slug",
+            "received_date", "due_date", "question", "proposed_solution", "slug",
+            "status", "official_response", "responded_by", "responded_by_name",
+            "responded_at", "closed_at",
         ]
-        read_only_fields = ["id", "slug", "author"]
+        read_only_fields = [
+            "id", "slug", "author",
+            "status", "official_response", "responded_by", "responded_by_name",
+            "responded_at", "closed_at",
+        ]
 
     def validate(self, attrs):
         project = attrs.get("project") or getattr(self.instance, "project", None)
@@ -173,8 +180,67 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             member = Member.objects.get(user=self.user)
             data["member_id"] = member.id
             data["display_name"] = member.name or self.user.username
+            data["role"] = member.role
         except Member.DoesNotExist:
             data["member_id"] = None
             data["display_name"] = self.user.username
+            data["role"] = ""
 
         return data
+
+
+class RfiCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.name", read_only=True, default="")
+    author_role = serializers.CharField(source="author.role", read_only=True, default="")
+    author_company = serializers.CharField(source="author.company", read_only=True, default="")
+
+    class Meta:
+        model = RfiComment
+        fields = [
+            "id", "rfi", "author", "author_name", "author_role", "author_company",
+            "body", "is_official_response", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "rfi", "author", "author_name", "author_role", "author_company",
+            "is_official_response", "created_at", "updated_at",
+        ]
+
+    def validate_body(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Comment body cannot be empty.")
+        return value
+
+
+class RfiAttachmentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(source="uploaded_by.name", read_only=True, default="")
+
+    class Meta:
+        model = RfiAttachment
+        fields = [
+            "id", "rfi", "file", "file_url", "original_filename",
+            "content_type", "size", "uploaded_by", "uploaded_by_name", "uploaded_at",
+        ]
+        read_only_fields = [
+            "id", "rfi", "file_url", "original_filename", "content_type",
+            "size", "uploaded_by", "uploaded_by_name", "uploaded_at",
+        ]
+        extra_kwargs = {"file": {"write_only": True}}
+
+    def get_file_url(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get("request")
+        url = obj.file.url
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
+
+class OfficialResponseSerializer(serializers.Serializer):
+    body = serializers.CharField()
+
+    def validate_body(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Official response cannot be empty.")
+        return value

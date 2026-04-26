@@ -9,6 +9,7 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import RfiList from "./components/RfiList";
 import UpdateRfiForm from "./components/UpdateRfiForm";
+import RfiDetail from "./components/RfiDetail";
 import ProjectList from "./components/ProjectList";
 
 import ForgotPassword from "./pages/ForgotPassword";
@@ -44,6 +45,14 @@ function App() {
           element={
             <PrivateRoute>
               <CreateRfiForm />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/rfi/:pk/:slug"
+          element={
+            <PrivateRoute>
+              <RfiDetail />
             </PrivateRoute>
           }
         />

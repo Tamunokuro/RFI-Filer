@@ -157,22 +157,41 @@ const CreateRfiForm = () => {
             />
           </div>
 
-          {/* Remarks */}
+          {/* Question */}
           <div>
             <label
-              htmlFor="remarks"
+              htmlFor="question"
               className="block text-sm font-medium text-gray-700"
             >
-              Remarks
+              Question
             </label>
             <textarea
-              id="remarks"
-              name="remarks"
+              id="question"
+              name="question"
               rows={3}
-              value={formData.remarks}
+              value={formData.question}
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
-              placeholder="Any additional notes..."
+              placeholder="Describe the question or issue being raised..."
+            />
+          </div>
+
+          {/* Proposed Solution */}
+          <div>
+            <label
+              htmlFor="proposed_solution"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Proposed Solution
+            </label>
+            <textarea
+              id="proposed_solution"
+              name="proposed_solution"
+              rows={3}
+              value={formData.proposed_solution}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
+              placeholder="Suggest a possible solution or approach..."
             />
           </div>
 
@@ -189,8 +208,8 @@ const CreateRfiForm = () => {
               id="attachments"
               name="attachments"
               multiple
+              accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx,.csv,.mp4,.mov,.webm,application/pdf,image/*,video/*,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={(e) => {
-                // only works because the hook exposes setFormData
                 setFormData((prev) => ({
                   ...prev,
                   attachments: e.target.files,
@@ -198,6 +217,21 @@ const CreateRfiForm = () => {
               }}
               className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Allowed: PDF, images, Excel, CSV, video (MP4/MOV/WebM). Max 50 MB each.
+            </p>
+            {formData.attachments && formData.attachments.length > 0 && (
+              <ul className="mt-2 text-xs text-gray-700 list-disc list-inside space-y-0.5">
+                {Array.from(formData.attachments).map((f) => (
+                  <li key={f.name + f.size}>
+                    {f.name}{" "}
+                    <span className="text-gray-400">
+                      ({Math.round(f.size / 1024)} KB)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Submit Button */}

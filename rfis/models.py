@@ -81,6 +81,10 @@ class ProjectMembership(models.Model):
 
 
 class Rfi(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        CLOSED = "closed", "Closed"
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="rfis")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rfis")
     trade = models.CharField(max_length=10, default="M")
@@ -89,8 +93,17 @@ class Rfi(models.Model):
     assigned_to = models.ManyToManyField(Member, related_name="assigned_rfis", blank=True)
     received_date = models.DateField()
     due_date = models.DateField()
-    remarks = models.TextField(blank=True)
+    question = models.TextField(blank=True)
+    proposed_solution = models.TextField(blank=True)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
+
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    official_response = models.TextField(blank=True)
+    responded_by = models.ForeignKey(
+        Member, on_delete=models.SET_NULL, null=True, blank=True, related_name="responded_rfis"
+    )
+    responded_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.project.project_number} - {self.rfi_number} - {self.rfi_name}"
@@ -115,3 +128,57 @@ class Rfi(models.Model):
                 name="due_not_before_received",
             ),
         ]
+
+
+def rfi_attachment_path(instance, filename):
+    return f"rfi_attachments/{instance.rfi_id}/{filename}"
+
+
+class RfiAttachment(models.Model):
+    rfi = models.ForeignKey(Rfi, on_delete=models.CASCADE, related_name="attachments")
+    uploaded_by = models.ForeignKey(
+        Member, on_delete=models.SET_NULL, null=True, related_name="rfi_attachments"
+    )
+    file = models.FileField(upload_to=rfi_attachment_path)
+    original_filename = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=120, blank=True)
+    size = models.PositiveBigIntegerField(default=0)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at", "-id"]
+        indexes = [models.Index(fields=["rfi", "uploaded_at"])]
+
+    def __str__(self):
+        return f"{self.original_filename} (RFI {self.rfi_id})"
+
+
+class RfiComment(models.Model):
+    rfi = models.ForeignKey(Rfi, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(Member, on_delete=models.SET_NULL, null=True, related_name="rfi_comments")
+    body = models.TextField()
+    is_official_response = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [models.Index(fields=["rfi", "created_at"])]
+
+    def __str__(self):
+        author_name = self.author.name if self.author else "[deleted]"
+        return f"Comment by {author_name} on RFI {self.rfi_id}"
+
+
+class RfiReadState(models.Model):
+    """Tracks when a member last viewed an RFI's discussion.
+
+    Unread count for a member on an RFI = comments with created_at > last_read_at.
+    """
+    rfi = models.ForeignKey(Rfi, on_delete=models.CASCADE, related_name="read_states")
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="rfi_read_states")
+    last_read_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("rfi", "member")
+        indexes = [models.Index(fields=["member", "rfi"])]

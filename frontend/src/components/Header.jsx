@@ -1,7 +1,7 @@
 import { useAuth } from "../context/Auth";
 import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
-import { FolderOpenIcon } from "@heroicons/react/24/outline";
+import { FolderOpenIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
 
 const Header = ({ title }) => {
@@ -38,6 +38,14 @@ const Header = ({ title }) => {
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
         {isAuthenticated && (
           <>
+            <button
+              onClick={() => navigate("/")}
+              className="hover:bg-blue-100 text-blue-800 p-2 rounded-full border border-blue-200 shadow-sm transition duration-150"
+              title="RFI List"
+            >
+              <ClipboardDocumentListIcon className="w-6 h-6" />
+            </button>
+
             <button
               onClick={() => navigate("/projects")}
               className="hover:bg-blue-100 text-blue-800 p-2 rounded-full border border-blue-200 shadow-sm transition duration-150"

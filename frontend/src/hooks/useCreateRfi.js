@@ -17,7 +17,9 @@ const useCreateRfi = () => {
     assigned_to: [], // <-- array of IDs
     received_date: "",
     due_date: "",
-    remarks: "",
+    question: "",
+    proposed_solution: "",
+    attachments: null, // FileList or Array from <input type="file" multiple>
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -160,15 +162,32 @@ const useCreateRfi = () => {
       assigned_to: formData.assigned_to, // array of IDs
       received_date: formData.received_date,
       due_date: formData.due_date,
-      remarks: formData.remarks,
+      question: formData.question,
+      proposed_solution: formData.proposed_solution,
     };
 
     try {
-      await api.post("/api/rfis/", payload, {
+      const { data: rfi } = await api.post("/api/rfis/", payload, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem(ACCESS_TOKEN)}`,
         },
       });
+
+      const files = formData.attachments
+        ? Array.from(formData.attachments)
+        : [];
+      if (files.length > 0 && rfi?.id) {
+        const fd = new FormData();
+        files.forEach((f) => fd.append("file", f));
+        try {
+          await api.post(`/api/rfis/${rfi.id}/attachments/`, fd);
+        } catch (uploadErr) {
+          const detail =
+            uploadErr.response?.data?.detail ||
+            "RFI created but some attachments failed to upload.";
+          setError(detail);
+        }
+      }
 
       setSuccess(true);
       setFormData(initialForm);
