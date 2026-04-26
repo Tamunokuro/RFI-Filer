@@ -2,12 +2,9 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
-import { toast } from "react-toastify";
+import toast from "../toast";
 
-import {
-  ArrowRightIcon,
-  ExclamationCircleIcon,
-} from "@heroicons/react/20/solid";
+import { ArrowRightIcon } from "@heroicons/react/20/solid";
 import { useAuth } from "../context/Auth";
 
 const Login = () => {
@@ -18,18 +15,20 @@ const Login = () => {
     username: "",
     password: "",
   });
-  const [error, setError] = useState("");
+
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setError("");
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
@@ -61,9 +60,10 @@ const Login = () => {
       navigate("/");
     } catch (err) {
       console.error(err);
+
       const message =
         err.response?.data?.detail || "Invalid username or password";
-      setError(message);
+
       toast.error(message);
     } finally {
       setLoading(false);
@@ -75,20 +75,12 @@ const Login = () => {
       <h1 className="text-3xl font-bold text-center text-blue-950 mb-6">
         Welcome back!
       </h1>
+
       <div className="form-background"></div>
       <div className="form-decoration decoration-1"></div>
       <div className="form-decoration decoration-2"></div>
 
       <div className="form-container">
-        {error && (
-          <div className="flex justify-center">
-            <p className="text-sm text-red-600 flex items-center gap-2">
-              <ExclamationCircleIcon className="h-4 w-4 text-red-500" />
-              {error}
-            </p>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="mt-10 max-w-md mx-auto p-6">
           <div className="sm:col-span-4">
             <label
@@ -97,11 +89,13 @@ const Login = () => {
             >
               Username
             </label>
+
             <div className="mt-2">
               <div className="flex items-center rounded-md bg-white pl-3 outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
                 <div className="shrink-0 text-base text-gray-500 select-none">
                   Filer/
                 </div>
+
                 <input
                   type="text"
                   name="username"
@@ -123,6 +117,7 @@ const Login = () => {
             >
               Password
             </label>
+
             <div className="mt-2">
               <input
                 type="password"
@@ -159,6 +154,7 @@ const Login = () => {
             ) : (
               <span className="font-semibold">Login</span>
             )}
+
             <ArrowRightIcon className="w-6 h-6" />
           </button>
 

@@ -16,8 +16,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import MemberDetail from "./pages/MemberDetail";
 
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import Toaster from "./components/Toaster";
 
 import { ACCESS_TOKEN } from "./constants";
 
@@ -29,7 +28,7 @@ const PrivateRoute = ({ children }) => {
 function App() {
   return (
     <Router>
-      <ToastContainer position="top-right" autoClose={3000} />
+      <Toaster />
 
       <Routes>
         <Route

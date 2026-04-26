@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { EnvelopeIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { CheckCircleIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid";
-import { toast } from "react-toastify";
+import {
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/20/solid";
+import toast from "../toast";
 import api from "../api";
 
 const ForgotPassword = () => {
@@ -22,7 +25,8 @@ const ForgotPassword = () => {
       setInfo(res.data.detail);
       toast.success(res.data.detail);
     } catch (err) {
-      const message = err.response?.data?.email?.[0] || "Unable to process request.";
+      const message =
+        err.response?.data?.email?.[0] || "Unable to process request.";
       setError(message);
       toast.error(message);
     } finally {
@@ -42,7 +46,8 @@ const ForgotPassword = () => {
 
       <div className="form-container">
         <p className="text-sm text-gray-600 text-center mb-6">
-          Enter the email linked to your account and we’ll send you a password reset link.
+          Enter the email linked to your account and we’ll send you a password
+          reset link.
         </p>
 
         {info && (

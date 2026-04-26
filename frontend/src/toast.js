@@ -1,29 +1,38 @@
-/**
- * Minimal toast event bus.
- *
- * Components call  toast.success("msg") / toast.error("msg") / toast.info("msg").
- * The <Toaster> component subscribes and renders the notifications.
- * The API surface is intentionally identical to react-toastify so callsites
- * need no changes beyond the import path.
- */
+const listeners = new Set();
 
-let _id = 0;
-const _listeners = new Set();
+function notify(type, message) {
+  const item = {
+    id:
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    type,
+    message,
+  };
 
-function _dispatch(type, message) {
-  const id = ++_id;
-  _listeners.forEach((fn) => fn({ id, type, message }));
-  return id;
+  listeners.forEach((listener) => listener(item));
 }
 
 const toast = {
-  success: (message) => _dispatch("success", message),
-  error:   (message) => _dispatch("error",   message),
-  info:    (message) => _dispatch("info",    message),
+  success(message) {
+    notify("success", message);
+  },
 
-  /** Used internally by <Toaster> — not part of the public API. */
-  _subscribe:   (fn) => _listeners.add(fn),
-  _unsubscribe: (fn) => _listeners.delete(fn),
+  error(message) {
+    notify("error", message);
+  },
+
+  info(message) {
+    notify("info", message);
+  },
+
+  subscribe(listener) {
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
+  },
 };
 
 export default toast;

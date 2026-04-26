@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { LockClosedIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { ExclamationCircleIcon } from "@heroicons/react/20/solid";
-import { toast } from "react-toastify";
+import toast from "../toast";
 import api from "../api";
 
 const ResetPassword = () => {

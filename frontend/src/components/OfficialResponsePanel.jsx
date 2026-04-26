@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import api from "../api";
-import { toast } from "react-toastify";
+import toast from "../toast";
 import { canSubmitOfficialResponse, useAuth } from "../context/Auth";
 import {
   PaperClipIcon,
@@ -24,7 +24,10 @@ const formatSize = (bytes) => {
 /** Compact read-only attachment row used in the closed panel. */
 const AttachmentRow = ({ att }) => (
   <div className="flex items-center justify-between gap-3 rounded-md border border-indigo-100 bg-white px-3 py-2 text-sm">
-    <span className="truncate text-indigo-900 font-medium" title={att.original_filename}>
+    <span
+      className="truncate text-indigo-900 font-medium"
+      title={att.original_filename}
+    >
       {att.original_filename}
     </span>
     <div className="flex items-center gap-3 shrink-0">
@@ -203,7 +206,9 @@ const OfficialResponsePanel = ({ rfi, onClosed }) => {
             >
               <span className="truncate text-gray-800">{f.name}</span>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-gray-400">{formatSize(f.size)}</span>
+                <span className="text-xs text-gray-400">
+                  {formatSize(f.size)}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeFile(i)}

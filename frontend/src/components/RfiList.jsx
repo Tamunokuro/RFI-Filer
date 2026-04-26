@@ -4,10 +4,18 @@ import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
 import Footer from "./Footer";
 import RFiDeleteButton from "./DeleteButton";
-import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
+import {
+  MagnifyingGlassIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
+} from "@heroicons/react/20/solid";
 import Header from "./Header";
 
 const UNREAD_POLL_MS = 30000;
+
+const formatUnreadCount = (count) => {
+  if (!count || count <= 0) return null;
+  return count > 999 ? "999+" : count;
+};
 
 const RfiList = () => {
   const navigate = useNavigate();
@@ -58,12 +66,13 @@ const RfiList = () => {
         const { data } = await api.get("/api/rfis/unread-summary/");
         setUnreadMap(data || {});
       } catch (err) {
-        /* non-fatal */
+        console.error("Error fetching unread summary:", err);
       }
     };
 
     fetchUnread();
     const id = setInterval(fetchUnread, UNREAD_POLL_MS);
+
     return () => clearInterval(id);
   }, []);
 
@@ -74,17 +83,20 @@ const RfiList = () => {
 
   const getStatusColor = (dueDate) => {
     if (!dueDate) return "bg-gray-100";
+
     const today = new Date();
     const due = new Date(dueDate);
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) return "bg-red-100 text-red-800";
     if (diffDays <= 3) return "bg-yellow-100 text-yellow-800";
+
     return "bg-green-100 text-green-800";
   };
 
   const renderStatus = (rfi) => {
     const overdue = new Date(rfi.due_date) < new Date();
+
     return (
       <span
         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
@@ -97,10 +109,65 @@ const RfiList = () => {
     );
   };
 
+  const renderMessageIndicator = (rfiId) => {
+    const unread = Number(unreadMap[String(rfiId)] || 0);
+    const unreadLabel = formatUnreadCount(unread);
+
+    return (
+      <span
+        className="relative inline-flex items-center justify-center"
+        title={
+          unread > 0
+            ? `${unread} unread message${unread === 1 ? "" : "s"}`
+            : "No unread messages"
+        }
+        aria-label={
+          unread > 0
+            ? `${unread} unread message${unread === 1 ? "" : "s"}`
+            : "No unread messages"
+        }
+        data-testid={`rfi-message-icon-${rfiId}`}
+      >
+        <ChatBubbleOvalLeftEllipsisIcon
+          className={`h-5 w-5 ${
+            unread > 0 ? "text-indigo-700" : "text-gray-400"
+          }`}
+        />
+
+        {unreadLabel && (
+          <span
+            className="absolute -right-2.5 -top-2 min-w-[1.15rem] h-[1.15rem] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none flex items-center justify-center ring-2 ring-white"
+            data-testid={`rfi-unread-${rfiId}`}
+          >
+            {unreadLabel}
+          </span>
+        )}
+      </span>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="mx-auto w-full max-w-7xl px-6 py-8">
+          <Header title="RFI List" />
+          <p className="text-center text-gray-500 py-8">Loading RFIs...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <Header title="RFI List" />
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
 
         {/* Search bar */}
         <div className="py-5 mb-6">
@@ -120,13 +187,14 @@ const RfiList = () => {
         </div>
 
         {/* Table */}
-        <div className="opy-3 w-full overflow-x-auto lg:overflow-visible">
+        <div className="py-3 w-full overflow-x-auto lg:overflow-visible">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 {[
                   "Project Number",
                   "RFI Number",
+                  "Messages",
                   "RFI Name",
                   "Project",
                   "Trade",
@@ -145,10 +213,9 @@ const RfiList = () => {
                 ))}
               </tr>
             </thead>
+
             <tbody className="bg-white divide-y divide-gray-200">
-              {rfis.map((rfi) => {
-                const unread = Number(unreadMap[String(rfi.id)] || 0);
-                return (
+              {rfis.map((rfi) => (
                 <tr
                   key={rfi.id}
                   className="hover:bg-gray-50 cursor-pointer"
@@ -157,41 +224,43 @@ const RfiList = () => {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {rfi.project_number}
                   </td>
+
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <span className="inline-flex items-center gap-2">
-                      {rfi.rfi_number}
-                      {unread > 0 && (
-                        <span
-                          className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-semibold"
-                          title={`${unread} unread message${unread === 1 ? "" : "s"}`}
-                          data-testid={`rfi-unread-${rfi.id}`}
-                        >
-                          {unread}
-                        </span>
-                      )}
-                    </span>
+                    {rfi.rfi_number}
                   </td>
+
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {renderMessageIndicator(rfi.id)}
+                  </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.rfi_name}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.project_name}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.trade}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {formatDate(rfi.received_date)}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {formatDate(rfi.due_date)}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.assigned_to_detail?.length
                       ? rfi.assigned_to_detail.map((m) => m.name).join(", ")
                       : "—"}
                   </td>
+
                   <td className="px-6 py-4">{renderStatus(rfi)}</td>
+
                   <td
                     className="px-4 py-4"
                     onClick={(e) => e.stopPropagation()}
@@ -211,8 +280,7 @@ const RfiList = () => {
                     />
                   </td>
                 </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
@@ -261,6 +329,7 @@ const RfiList = () => {
           </div>
         )}
       </div>
+
       <Footer />
     </div>
   );

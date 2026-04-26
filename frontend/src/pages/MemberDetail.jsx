@@ -5,7 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import MemberCard from "../components/MemberCard";
 import { useAuth } from "../context/Auth";
-import { toast } from "react-toastify";
+import toast from "../toast";
 import {
   BriefcaseIcon,
   ClockIcon,
@@ -108,7 +108,11 @@ const MemberDetail = () => {
     try {
       const res = await api.patch("/api/me/", editForm);
       const updated = res.data.member;
-      setMember((prev) => ({ ...prev, name: updated.name, email: updated.email }));
+      setMember((prev) => ({
+        ...prev,
+        name: updated.name,
+        email: updated.email,
+      }));
       // Sync auth context so the header display name updates immediately
       login({
         access: localStorage.getItem("access"),
@@ -125,7 +129,9 @@ const MemberDetail = () => {
       if (data && typeof data === "object") {
         setEditErrors(data);
       } else {
-        setEditErrors({ non_field_errors: ["Failed to save. Please try again."] });
+        setEditErrors({
+          non_field_errors: ["Failed to save. Please try again."],
+        });
       }
     } finally {
       setSaving(false);
@@ -176,7 +182,9 @@ const MemberDetail = () => {
             {isOwnProfile && editOpen && (
               <div className="rounded-xl border border-indigo-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Edit Profile</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Edit Profile
+                  </h3>
                   <button
                     onClick={() => setEditOpen(false)}
                     className="text-gray-400 hover:text-gray-600"
@@ -286,7 +294,9 @@ const MemberDetail = () => {
                 label: "Overdue",
                 value: overdueCount,
                 color: "bg-red-50 text-red-800",
-                icon: <ExclamationTriangleIcon className="h-6 w-6 text-red-400" />,
+                icon: (
+                  <ExclamationTriangleIcon className="h-6 w-6 text-red-400" />
+                ),
               },
             ].map(({ label, value, color, icon }) => (
               <div
@@ -328,7 +338,8 @@ const MemberDetail = () => {
             <p className="px-5 py-8 text-sm text-gray-500">Loading RFIs…</p>
           ) : filtered.length === 0 ? (
             <p className="px-5 py-8 text-sm text-gray-500 italic">
-              No {filter !== "all" ? filter + " " : ""}RFIs assigned to this member.
+              No {filter !== "all" ? filter + " " : ""}RFIs assigned to this
+              member.
             </p>
           ) : (
             <ul className="divide-y divide-gray-100">
