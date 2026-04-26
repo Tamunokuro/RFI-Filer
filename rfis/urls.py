@@ -11,6 +11,8 @@ from .views import (
     ForgotPasswordView,
     ResetPasswordView,
     CustomTokenObtainPairView,
+    RfiCommentListCreate, RfiOfficialResponse, RfiMarkRead, RfiUnreadSummary,
+    RfiAttachmentListCreate, RfiAttachmentDetail,
 )
 
 app_name = "rfis"
@@ -28,7 +30,13 @@ urlpatterns = [
     # ----- RFIs -----
     # GET /api/rfis/?project=<id>  (filter by project)
     path("rfis/", RfiListCreate.as_view(), name="rfi-list"),
+    path("rfis/unread-summary/", RfiUnreadSummary.as_view(), name="rfi-unread-summary"),
     path("rfis/<int:pk>/", RfiDetail.as_view(), name="rfi-detail"),
+    path("rfis/<int:pk>/comments/", RfiCommentListCreate.as_view(), name="rfi-comments"),
+    path("rfis/<int:pk>/official-response/", RfiOfficialResponse.as_view(), name="rfi-official-response"),
+    path("rfis/<int:pk>/mark-read/", RfiMarkRead.as_view(), name="rfi-mark-read"),
+    path("rfis/<int:pk>/attachments/", RfiAttachmentListCreate.as_view(), name="rfi-attachments"),
+    path("rfis/<int:pk>/attachments/<int:attachment_id>/", RfiAttachmentDetail.as_view(), name="rfi-attachment-detail"),
     # rfis/urls.py
     path("rfis/<int:pk>/<slug:slug>/", RfiDetail.as_view(), name="rfi-detail-slug"),
 

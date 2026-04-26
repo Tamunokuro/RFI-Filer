@@ -18,7 +18,8 @@ const UpdateRfiForm = () => {
     subject: "",
     received_date: "",
     due_date: "",
-    remarks: "",
+    question: "",
+    proposed_solution: "",
     status: "",
   });
 
@@ -48,7 +49,8 @@ const UpdateRfiForm = () => {
           subject: data.subject ?? "",
           received_date: data.received_date ?? "",
           due_date: data.due_date ?? "",
-          remarks: data.remarks ?? "",
+          question: data.question ?? "",
+          proposed_solution: data.proposed_solution ?? "",
           status: data.status ?? "",
         }));
       } catch (err) {
@@ -77,7 +79,8 @@ const UpdateRfiForm = () => {
       assigned_to: formData.assigned_to, // remains array of IDs
       received_date: formData.received_date,
       due_date: formData.due_date,
-      remarks: formData.remarks,
+      question: formData.question,
+      proposed_solution: formData.proposed_solution,
     };
 
     try {
@@ -193,6 +196,32 @@ const UpdateRfiForm = () => {
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block font-medium text-gray-700">Question</label>
+            <textarea
+              name="question"
+              rows={3}
+              value={formData.question}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              placeholder="Describe the question or issue being raised..."
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-gray-700">
+              Proposed Solution
+            </label>
+            <textarea
+              name="proposed_solution"
+              rows={3}
+              value={formData.proposed_solution}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              placeholder="Suggest a possible solution or approach..."
+            />
           </div>
 
           <button

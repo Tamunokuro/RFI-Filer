@@ -5,12 +5,15 @@ import Footer from "./Footer";
 import Header from "./Header";
 import RfiDiscussion from "./RfiDiscussion";
 import OfficialResponsePanel from "./OfficialResponsePanel";
+import RfiAttachments from "./RfiAttachments";
+import { useAuth } from "../context/Auth";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
 
 const RfiDetail = () => {
   const { pk } = useParams();
   const navigate = useNavigate();
+  const { memberId } = useAuth();
   const [rfi, setRfi] = useState(null);
   const [error, setError] = useState("");
 
@@ -114,16 +117,30 @@ const RfiDetail = () => {
               <dt className="text-gray-500">Assigned To</dt>
               <dd className="text-gray-900">{assignees}</dd>
             </div>
-            {rfi.remarks && (
+            {rfi.question && (
               <div className="md:col-span-4">
-                <dt className="text-gray-500">Remarks</dt>
+                <dt className="text-gray-500">Question</dt>
                 <dd className="whitespace-pre-wrap text-gray-900">
-                  {rfi.remarks}
+                  {rfi.question}
+                </dd>
+              </div>
+            )}
+            {rfi.proposed_solution && (
+              <div className="md:col-span-4">
+                <dt className="text-gray-500">Proposed Solution</dt>
+                <dd className="whitespace-pre-wrap text-gray-900">
+                  {rfi.proposed_solution}
                 </dd>
               </div>
             )}
           </dl>
         </section>
+
+        <RfiAttachments
+          rfiId={rfi.id}
+          currentMemberId={memberId}
+          isClosed={closed}
+        />
 
         <OfficialResponsePanel rfi={rfi} onClosed={(updated) => setRfi(updated)} />
 

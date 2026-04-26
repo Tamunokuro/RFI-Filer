@@ -9,13 +9,12 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   MagnifyingGlassIcon,
-  ChatBubbleLeftRightIcon,
-  FolderIcon,
 } from "@heroicons/react/20/solid";
+import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 
-const isOverdue = (dueDate) => {
-  if (!dueDate) return false;
-  return new Date(dueDate) < new Date();
+const isOverdue = (rfi) => {
+  if (!rfi.due_date || rfi.status === "closed") return false;
+  return new Date(rfi.due_date) < new Date();
 };
 
 const ProjectList = () => {
@@ -89,7 +88,7 @@ const ProjectList = () => {
               className="text-gray-600 hover:text-indigo-700"
               title="Go to RFI List"
             >
-              <ChatBubbleLeftRightIcon className="w-6 h-6" />
+              <ClipboardDocumentListIcon className="w-6 h-6" />
             </button>
           </div>
         </div>
@@ -152,8 +151,10 @@ const ProjectList = () => {
                           <li
                             key={rfi.id}
                             className={`p-2 border rounded shadow-sm ${
-                              isOverdue(rfi.due_date)
+                              isOverdue(rfi)
                                 ? "bg-red-100 text-red-800 border-red-300"
+                                : rfi.status === "closed"
+                                ? "bg-gray-50 text-gray-500 border-gray-200"
                                 : "bg-white text-gray-800 border-gray-200"
                             }`}
                           >
@@ -171,11 +172,15 @@ const ProjectList = () => {
                                 : "—"}
                             </p>
                             <p className="text-sm">Due: {rfi.due_date}</p>
-                            {isOverdue(rfi.due_date) && (
+                            {rfi.status === "closed" ? (
+                              <p className="text-xs font-medium text-gray-400">
+                                ✓ Closed
+                              </p>
+                            ) : isOverdue(rfi) ? (
                               <p className="text-xs font-medium text-red-600">
                                 ⚠️ Overdue
                               </p>
-                            )}
+                            ) : null}
                           </li>
                         ))}
                       </ul>

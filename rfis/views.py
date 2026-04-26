@@ -1,11 +1,11 @@
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q
-from django.db import IntegrityError
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
@@ -13,12 +13,33 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes, force_str
 from django.conf import settings
 
-from .models import Project, Rfi, Member, ProjectMembership
+from rest_framework.parsers import MultiPartParser, FormParser
+
+from .models import Project, Rfi, Member, ProjectMembership, RfiComment, RfiReadState, RfiAttachment
 from .serializer import (
-    ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer
+    ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer,
+    RfiCommentSerializer, OfficialResponseSerializer, RfiAttachmentSerializer,
 )
+
+
+ALLOWED_ATTACHMENT_CONTENT_TYPES = {
+    "application/pdf",
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+    "video/mp4", "video/quicktime", "video/webm",
+}
+MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializer import CustomTokenObtainPairSerializer
+
+
+OFFICIAL_RESPONDER_ROLES = {
+    Member.Role.PROJECT_DESIGNER,
+    Member.Role.CONTRACT_ADMIN,
+    Member.Role.PROJECT_MANAGER,
+}
 
 
 
@@ -64,6 +85,7 @@ class MeView(APIView):
             "id": user.id,
             "username": user.username,
             "email": user.email,
+            "role": member.role if member else "",
             "member": {
                 "id": member.id,
                 "name": member.name,
@@ -233,6 +255,10 @@ class RfiListCreate(APIView):
         if project_id:
             qs = qs.filter(project_id=project_id)
 
+        assigned_to_id = request.query_params.get("assigned_to")
+        if assigned_to_id:
+            qs = qs.filter(assigned_to__id=assigned_to_id).distinct()
+
         term = request.query_params.get("search")
         if term:
             qs = qs.filter(
@@ -282,34 +308,6 @@ class RfiListCreate(APIView):
 
         # Re-serialize to include read-only/nested fields (assigned_to_detail, project_* fields if you added them)
         return Response(RfiSerializer(rfi).data, status=status.HTTP_201_CREATED)
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        qs = Rfi.objects.select_related("project", "author").prefetch_related("assigned_to")
-
-        # project filter
-        project_id = request.query_params.get("project")
-        if project_id:
-            qs = qs.filter(project_id=project_id)
-
-        # search filter (match your frontend ?search=)
-        term = request.query_params.get("search")
-        if term:
-            qs = qs.filter(
-                Q(rfi_name__icontains=term) |
-                Q(rfi_number__icontains=term) |
-                Q(trade__icontains=term) |
-                Q(project__project_number__icontains=term) |
-                Q(project__project_name__icontains=term) |
-                Q(assigned_to__name__icontains=term)
-            ).distinct()
-
-        paginator = StandardPagination()
-        page = paginator.paginate_queryset(qs.order_by("-received_date", "-id"), request)
-        serializer = RfiSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
-    
-
 
 
 class RfiDetail(APIView):
@@ -345,6 +343,204 @@ class RfiDetail(APIView):
         rfi = self.get_object(pk)
         rfi.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- RFI Discussion / Official Response ----------
+
+class RfiCommentListCreate(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        qs = rfi.comments.select_related("author").all()
+        return Response(RfiCommentSerializer(qs, many=True).data)
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        member = getattr(request.user, "member", None)
+        if member is None:
+            return Response(
+                {"detail": "Only project members can post comments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if rfi.status == Rfi.Status.CLOSED:
+            return Response(
+                {"detail": "This RFI is closed and no longer accepts new comments."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = RfiCommentSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        comment = RfiComment.objects.create(
+            rfi=rfi,
+            author=member,
+            body=serializer.validated_data["body"],
+            is_official_response=False,
+        )
+        return Response(RfiCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+
+
+class RfiOfficialResponse(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        member = getattr(request.user, "member", None)
+        if member is None or member.role not in OFFICIAL_RESPONDER_ROLES:
+            return Response(
+                {"detail": "Only Project Designers, Contract Administrators, or Project Managers "
+                           "may submit an official response."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if rfi.status == Rfi.Status.CLOSED:
+            return Response(
+                {"detail": "This RFI is already closed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = OfficialResponseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        body = serializer.validated_data["body"]
+        now = timezone.now()
+        with transaction.atomic():
+            RfiComment.objects.create(
+                rfi=rfi,
+                author=member,
+                body=body,
+                is_official_response=True,
+            )
+            rfi.status = Rfi.Status.CLOSED
+            rfi.official_response = body
+            rfi.responded_by = member
+            rfi.responded_at = now
+            rfi.closed_at = now
+            rfi.save(update_fields=[
+                "status", "official_response", "responded_by", "responded_at", "closed_at",
+            ])
+
+        return Response(RfiSerializer(rfi).data, status=status.HTTP_200_OK)
+
+
+class RfiMarkRead(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        member = getattr(request.user, "member", None)
+        if member is None:
+            return Response(
+                {"detail": "No member profile associated with this user."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        state, _ = RfiReadState.objects.get_or_create(rfi=rfi, member=member)
+        state.save()  # auto_now updates last_read_at
+        return Response({"last_read_at": state.last_read_at})
+
+
+class RfiAttachmentListCreate(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        qs = rfi.attachments.select_related("uploaded_by").all()
+        return Response(
+            RfiAttachmentSerializer(qs, many=True, context={"request": request}).data
+        )
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        member = getattr(request.user, "member", None)
+
+        files = request.FILES.getlist("file") or request.FILES.getlist("files")
+        if not files:
+            return Response(
+                {"detail": "No file uploaded. Send one or more files as 'file'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = []
+        errors = []
+        for f in files:
+            if f.size > MAX_ATTACHMENT_SIZE_BYTES:
+                errors.append({"filename": f.name, "error": "File exceeds 50MB limit."})
+                continue
+            content_type = (f.content_type or "").lower()
+            if content_type and content_type not in ALLOWED_ATTACHMENT_CONTENT_TYPES:
+                errors.append({
+                    "filename": f.name,
+                    "error": f"Content type '{content_type}' is not permitted.",
+                })
+                continue
+            att = RfiAttachment.objects.create(
+                rfi=rfi,
+                uploaded_by=member,
+                file=f,
+                original_filename=f.name,
+                content_type=content_type,
+                size=f.size,
+            )
+            created.append(att)
+
+        data = RfiAttachmentSerializer(created, many=True, context={"request": request}).data
+        if errors and not created:
+            return Response({"detail": "No files accepted.", "errors": errors},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"created": data, "errors": errors},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RfiAttachmentDetail(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk, attachment_id):
+        attachment = get_object_or_404(RfiAttachment, pk=attachment_id, rfi_id=pk)
+        member = getattr(request.user, "member", None)
+        is_uploader = member is not None and attachment.uploaded_by_id == member.id
+        is_admin = bool(member and member.is_admin)
+        if not (is_uploader or is_admin):
+            return Response(
+                {"detail": "Only the uploader or an admin can delete this attachment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Remove the underlying file from disk too.
+        if attachment.file:
+            attachment.file.delete(save=False)
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RfiUnreadSummary(APIView):
+    """Returns { "<rfi_id>": <unread_count>, ... } for the current member across all RFIs."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        member = getattr(request.user, "member", None)
+        if member is None:
+            return Response({})
+
+        read_map = dict(
+            RfiReadState.objects.filter(member=member).values_list("rfi_id", "last_read_at")
+        )
+
+        unread = {}
+        # Only count non-self comments so you don't badge yourself.
+        comments = (
+            RfiComment.objects
+            .exclude(author=member)
+            .values("rfi_id", "created_at")
+        )
+        for row in comments:
+            rfi_id = row["rfi_id"]
+            created = row["created_at"]
+            last_read = read_map.get(rfi_id)
+            if last_read is None or created > last_read:
+                unread[str(rfi_id)] = unread.get(str(rfi_id), 0) + 1
+
+        return Response(unread)
 
 
 # ---------- Members (optional) ----------

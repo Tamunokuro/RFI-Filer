@@ -142,6 +142,8 @@ const Form = ({ route, method }) => {
       refresh,
       username: user.username,
       displayName: user.member?.name || user.username,
+      memberId: user.member?.id || "",
+      role: user.member?.role || "",
     });
 
     toast.success("Login successful.");
