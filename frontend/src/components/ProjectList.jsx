@@ -4,6 +4,7 @@ import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
 
 import Footer from "./Footer";
+import AssigneeAvatars from "./AssigneeAvatars";
 
 import {
   ChevronDownIcon,
@@ -162,15 +163,10 @@ const ProjectList = () => {
                             <p className="text-sm">
                               RFI Number: {rfi.rfi_number}
                             </p>
-                            <p className="text-sm">
-                              Assigned To:{" "}
-                              {Array.isArray(rfi.assigned_to_detail) &&
-                              rfi.assigned_to_detail.length
-                                ? rfi.assigned_to_detail
-                                    .map((m) => m.name)
-                                    .join(", ")
-                                : "—"}
-                            </p>
+                            <div className="flex items-center gap-2 text-sm mt-0.5">
+                              <span className="text-gray-600 shrink-0">Assigned To:</span>
+                              <AssigneeAvatars members={rfi.assigned_to_detail} size="sm" />
+                            </div>
                             <p className="text-sm">Due: {rfi.due_date}</p>
                             {rfi.status === "closed" ? (
                               <p className="text-xs font-medium text-gray-400">

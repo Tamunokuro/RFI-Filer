@@ -1,3 +1,4 @@
+import re
 from django.db.models import Count, Q
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
@@ -235,6 +236,30 @@ class ProjectMembers(APIView):
         project = get_object_or_404(Project.objects.prefetch_related("members"), pk=pk)
         members = project.members.select_related("user").all()
         return Response(MemberSerializer(members, many=True).data)
+
+class ProjectNextRfiNumber(APIView):
+    """
+    GET /api/projects/<pk>/next-rfi-number/
+    Inspects every existing RFI for the project, finds the highest numeric
+    suffix in the rfi_number field, and returns the next value formatted as
+    RFI-XXX (3-digit zero-padded).  Falls back to RFI-001 for new projects.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        project = get_object_or_404(Project, pk=pk)
+        numbers = Rfi.objects.filter(project=project).values_list("rfi_number", flat=True)
+
+        max_num = 0
+        for rfi_number in numbers:
+            # Match the last run of digits in the string, e.g. "RFI-007" → 7
+            match = re.search(r"(\d+)\s*$", rfi_number.strip())
+            if match:
+                max_num = max(max_num, int(match.group(1)))
+
+        next_number = f"RFI-{max_num + 1:03d}"
+        return Response({"next_rfi_number": next_number})
+
 
 class ProjectDetail(APIView):
     permission_classes = [permissions.IsAuthenticated]

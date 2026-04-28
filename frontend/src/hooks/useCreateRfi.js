@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
+import toast from "../toast";
 
 const useCreateRfi = () => {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ const useCreateRfi = () => {
     fetchProjects();
   }, [navigate]);
 
-  // When a project is chosen: fill display fields + fetch its members
+  // When a project is chosen: fill display fields, fetch members + next RFI number
   const handleProjectSelect = async (e) => {
     const value = e.target.value;
     const projectId = value ? Number(value) : "";
@@ -72,15 +73,23 @@ const useCreateRfi = () => {
       project_number: proj?.project_number || "",
       project_name: proj?.project_name || "",
       project_manager: proj?.project_manager_name || "",
-      assigned_to: [], // reset selections on project change
+      rfi_number: "", // clear while fetching suggestion
+      assigned_to: [],
     }));
 
     setProjectMembers([]);
+
     if (projectId) {
-      console.log(projectId);
       try {
-        const res = await api.get(`/api/projects/${projectId}/members/`);
-        setProjectMembers(Array.isArray(res.data) ? res.data : []);
+        const [membersRes, nextRfiRes] = await Promise.all([
+          api.get(`/api/projects/${projectId}/members/`),
+          api.get(`/api/projects/${projectId}/next-rfi-number/`),
+        ]);
+        setProjectMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
+        setFormData((prev) => ({
+          ...prev,
+          rfi_number: nextRfiRes.data.next_rfi_number ?? "",
+        }));
       } catch {
         setProjectMembers([]);
       }
@@ -148,7 +157,10 @@ const useCreateRfi = () => {
 
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
-      setError(validationErrors.join(". "));
+      // Fire one toast per error so they are itemised and always shown,
+      // even if the same errors appear on a repeated submit attempt.
+      validationErrors.forEach((msg) => toast.error(msg));
+      setError(validationErrors.join(" · "));
       setLoading(false);
       return;
     }
@@ -185,43 +197,59 @@ const useCreateRfi = () => {
           const detail =
             uploadErr.response?.data?.detail ||
             "RFI created but some attachments failed to upload.";
+          toast.error(detail);
           setError(detail);
         }
       }
 
+      toast.success("RFI created successfully!");
       setSuccess(true);
       setFormData(initialForm);
       setProjectMembers([]);
-      navigate("/"); // or navigate to the RFI list page you prefer
+      navigate("/");
     } catch (err) {
       if (err.response) {
-        const errorMessages = Object.entries(err.response.data || {})
-          .map(
-            ([field, errors]) =>
-              `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`
-          )
-          .join(". ");
-        setError(
-          errorMessages || "Failed to create RFI. Please check your input."
+        // Flatten all field-level errors from the backend into individual toasts
+        const messages = Object.entries(err.response.data || {}).flatMap(
+          ([field, errs]) =>
+            Array.isArray(errs)
+              ? errs.map((e) => `${field}: ${e}`)
+              : [`${field}: ${String(errs)}`]
         );
+        if (messages.length > 0) {
+          messages.forEach((msg) => toast.error(msg));
+          setError(messages.join(" · "));
+        } else {
+          const fallback = "Failed to create RFI. Please check your input.";
+          toast.error(fallback);
+          setError(fallback);
+        }
       } else {
-        setError("Network error. Please check your connection.");
+        const msg = "Network error. Please check your connection.";
+        toast.error(msg);
+        setError(msg);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Called by AssigneePicker with the new array of selected IDs
+  const handleAssigneeChange = (newIds) => {
+    setFormData((prev) => ({ ...prev, assigned_to: newIds }));
+  };
+
   return {
     formData,
-    setFormData, // expose so the form can do custom updates if needed
+    setFormData,
     error,
     success,
     loading,
     projects,
-    projectMembers, // list used to render the Assigned To dropdown
+    projectMembers,
     handleChange,
-    handleProjectSelect, // call this on the Project <select> onChange
+    handleProjectSelect,
+    handleAssigneeChange,
     handleSubmit,
   };
 };

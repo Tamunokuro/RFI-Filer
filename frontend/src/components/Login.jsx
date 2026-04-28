@@ -5,6 +5,7 @@ import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 import toast from "../toast";
 
 import { ArrowRightIcon } from "@heroicons/react/20/solid";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/Auth";
 
 const Login = () => {
@@ -17,6 +18,7 @@ const Login = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -119,16 +121,30 @@ const Login = () => {
             </label>
 
             <div className="mt-2">
-              <input
-                type="password"
-                name="password"
-                id="password"
-                onChange={handleChange}
-                value={formData.password}
-                className="w-full py-1.5 px-3 border border-gray-300 rounded-md text-gray-900"
-                placeholder="••••••••"
-                required
-              />
+              <div className="flex items-center rounded-md bg-white pl-3 pr-2 outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  id="password"
+                  onChange={handleChange}
+                  value={formData.password}
+                  className="block min-w-0 grow py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="ml-2 shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 

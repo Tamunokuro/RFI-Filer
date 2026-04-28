@@ -1,33 +1,19 @@
-import { useEffect } from "react";
 import useCreateRfi from "../hooks/useCreateRfi";
 import DateInput from "./DateSelector";
-import toast from "../toast";
+import AssigneePicker from "./AssigneePicker";
 
 const CreateRfiForm = () => {
   const {
     formData,
     setFormData,
-    error,
-    success,
     loading,
     projects,
     projectMembers,
     handleChange,
     handleProjectSelect,
+    handleAssigneeChange,
     handleSubmit,
   } = useCreateRfi();
-
-  useEffect(() => {
-    if (success) {
-      toast.success("RFI created successfully!");
-    }
-  }, [success]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
-  }, [error]);
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
@@ -87,39 +73,24 @@ const CreateRfiForm = () => {
                 required
                 className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
               />
+              {name === "rfi_number" && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Auto-suggested from existing RFIs — you can edit it if needed.
+                </p>
+              )}
             </div>
           ))}
 
           {/* Assigned To */}
           <div>
-            <label
-              htmlFor="assigned_to"
-              className="block text-sm font-medium text-gray-900"
-            >
+            <label className="block text-sm font-medium text-gray-900 mb-1">
               Assigned To
             </label>
-            <select
-              id="assigned_to"
-              name="assigned_to"
-              multiple
+            <AssigneePicker
+              members={projectMembers}
               value={formData.assigned_to || []}
-              onChange={handleChange}
-              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-            >
-              {projectMembers.length === 0 && (
-                <option disabled>No members found for this project</option>
-              )}
-
-              {projectMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                  {member.role ? ` — ${member.role}` : ""}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Hold Ctrl/Cmd to select multiple.
-            </p>
+              onChange={handleAssigneeChange}
+            />
           </div>
 
           {/* Discipline / Trade */}

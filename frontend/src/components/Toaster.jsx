@@ -19,7 +19,7 @@ import {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const AUTO_DISMISS_MS = 3500;
+const AUTO_DISMISS_MS = 5000;
 const SLIDE_OUT_MS = 280;
 const MAX_TOASTS = 5;
 

@@ -16,6 +16,8 @@ import {
   BriefcaseIcon,
   WrenchScrewdriverIcon,
   LockClosedIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import "../styles/Forms.css";
 import LoadingIndicator from "./LoadingIndicator";
@@ -64,6 +66,8 @@ const Form = ({ route, method }) => {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const title = isLogin ? "Welcome back!" : "Create your account";
   const buttonText = isLogin ? "Login" : "Register";
@@ -398,9 +402,9 @@ const Form = ({ route, method }) => {
                 Password
               </label>
               <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                <LockClosedIcon className="h-5 w-5 text-gray-400 mr-2" />
+                <LockClosedIcon className="h-5 w-5 text-gray-400 mr-2 shrink-0" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
                   value={formData.password}
@@ -409,6 +413,18 @@ const Form = ({ route, method }) => {
                   placeholder="Enter password"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="ml-2 shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeIcon className="h-5 w-5" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -421,9 +437,9 @@ const Form = ({ route, method }) => {
                   Confirm password
                 </label>
                 <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400 mr-2" />
+                  <LockClosedIcon className="h-5 w-5 text-gray-400 mr-2 shrink-0" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     id="confirm_password"
                     name="confirm_password"
                     value={formData.confirm_password}
@@ -432,6 +448,18 @@ const Form = ({ route, method }) => {
                     placeholder="Re-enter password"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="ml-2 shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeSlashIcon className="h-5 w-5" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
               </div>
             )}

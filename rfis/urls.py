@@ -5,7 +5,7 @@ from .views import (
     RfiListCreate, RfiDetail,
     MemberListCreate, MemberDetail,
     ProjectMembershipListCreate, ProjectMembershipDetail,
-    ProjectMembers,
+    ProjectMembers, ProjectNextRfiNumber,
     ChatGPTCompletion,
     MeView,
     ForgotPasswordView,
@@ -22,6 +22,7 @@ urlpatterns = [
     path("projects/", ProjectListCreate.as_view(), name="project-list"),
     path("projects/<int:pk>/", ProjectDetail.as_view(), name="project-detail"),
     path("projects/<int:pk>/members/", ProjectMembers.as_view(), name="project-members"),
+    path("projects/<int:pk>/next-rfi-number/", ProjectNextRfiNumber.as_view(), name="project-next-rfi-number"),
 
     # Optional nested RFIs under a project (handy for your UI if you want it)
     # You can simply call /api/rfis/?project=<id> instead, so this is optional.
