@@ -1,17 +1,17 @@
 import useCreateRfi from "../hooks/useCreateRfi";
 import DateInput from "./DateSelector";
+import AssigneePicker from "./AssigneePicker";
 
 const CreateRfiForm = () => {
   const {
     formData,
-    setFormData, // <-- new
-    error,
-    success,
+    setFormData,
     loading,
     projects,
-    projectMembers, // <-- new
+    projectMembers,
     handleChange,
-    handleProjectSelect, // <-- new
+    handleProjectSelect,
+    handleAssigneeChange,
     handleSubmit,
   } = useCreateRfi();
 
@@ -21,15 +21,6 @@ const CreateRfiForm = () => {
         <h2 className="text-3xl font-bold text-left text-indigo-950 mb-8">
           Create New RFI
         </h2>
-
-        {error && (
-          <p className="text-center text-red-600 font-medium mb-4">{error}</p>
-        )}
-        {success && (
-          <p className="text-center text-green-600 font-medium mb-4">
-            RFI created successfully!
-          </p>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Project */}
@@ -44,7 +35,7 @@ const CreateRfiForm = () => {
               id="project"
               name="project"
               value={formData.project}
-              onChange={handleProjectSelect} // <-- use custom handler
+              onChange={handleProjectSelect}
               required
               className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
             >
@@ -57,7 +48,7 @@ const CreateRfiForm = () => {
             </select>
           </div>
 
-          {/* Display + text fields (read-only where appropriate) */}
+          {/* Display + text fields */}
           {[
             { name: "project_number", label: "Project Number", ro: true },
             { name: "project_name", label: "Project Name", ro: true },
@@ -79,41 +70,27 @@ const CreateRfiForm = () => {
                 value={formData[name] ?? ""}
                 onChange={handleChange}
                 readOnly={!!ro}
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                 required
+                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
               />
+              {name === "rfi_number" && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Auto-suggested from existing RFIs — you can edit it if needed.
+                </p>
+              )}
             </div>
           ))}
 
-          {/* Assigned To (multi-select fed by project members) */}
+          {/* Assigned To */}
           <div>
-            <label
-              htmlFor="assigned_to"
-              className="block text-sm font-medium text-gray-900"
-            >
+            <label className="block text-sm font-medium text-gray-900 mb-1">
               Assigned To
             </label>
-            <select
-              id="assigned_to"
-              name="assigned_to"
-              multiple
-              value={formData.assigned_to || []} // array of IDs
-              onChange={handleChange} // hook handles multi-select
-              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-            >
-              {projectMembers.length === 0 && (
-                <option disabled>No members found for this project</option>
-              )}
-              {projectMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                  {m.role ? ` — ${m.role}` : ""}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Hold Ctrl/Cmd to select multiple.
-            </p>
+            <AssigneePicker
+              members={projectMembers}
+              value={formData.assigned_to || []}
+              onChange={handleAssigneeChange}
+            />
           </div>
 
           {/* Discipline / Trade */}
@@ -129,7 +106,7 @@ const CreateRfiForm = () => {
               id="trade"
               value={formData.trade}
               onChange={handleChange}
-              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
             >
               <option value="M">Mechanical</option>
               <option value="E">Electrical</option>
@@ -148,6 +125,7 @@ const CreateRfiForm = () => {
               onChange={handleChange}
               required
             />
+
             <DateInput
               label="Due Date"
               name="due_date"
@@ -195,7 +173,7 @@ const CreateRfiForm = () => {
             />
           </div>
 
-          {/* Attachments (optional) */}
+          {/* Attachments */}
           <div>
             <label
               htmlFor="attachments"
@@ -209,24 +187,27 @@ const CreateRfiForm = () => {
               name="attachments"
               multiple
               accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx,.csv,.mp4,.mov,.webm,application/pdf,image/*,video/*,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(e) => {
+              onChange={(event) => {
                 setFormData((prev) => ({
                   ...prev,
-                  attachments: e.target.files,
+                  attachments: event.target.files,
                 }));
               }}
               className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
+
             <p className="mt-1 text-xs text-gray-500">
-              Allowed: PDF, images, Excel, CSV, video (MP4/MOV/WebM). Max 50 MB each.
+              Allowed: PDF, images, Excel, CSV, video (MP4/MOV/WebM). Max 50 MB
+              each.
             </p>
+
             {formData.attachments && formData.attachments.length > 0 && (
               <ul className="mt-2 text-xs text-gray-700 list-disc list-inside space-y-0.5">
-                {Array.from(formData.attachments).map((f) => (
-                  <li key={f.name + f.size}>
-                    {f.name}{" "}
+                {Array.from(formData.attachments).map((file) => (
+                  <li key={`${file.name}-${file.size}`}>
+                    {file.name}{" "}
                     <span className="text-gray-400">
-                      ({Math.round(f.size / 1024)} KB)
+                      ({Math.round(file.size / 1024)} KB)
                     </span>
                   </li>
                 ))}

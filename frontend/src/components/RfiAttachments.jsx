@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../api";
-import { toast } from "react-toastify";
+import toast from "../toast";
 import {
   ArrowTopRightOnSquareIcon,
   ArrowDownTrayIcon,
@@ -21,7 +21,8 @@ const kindOf = (att) => {
   if (ct === "application/pdf") return "pdf";
   if (
     ct === "application/vnd.ms-excel" ||
-    ct === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    ct ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     ct === "text/csv"
   )
     return "excel";
@@ -77,7 +78,10 @@ const AttachmentCard = ({ att, canDelete, onDelete }) => {
       data-kind={kind}
     >
       {preview}
-      <div className="text-sm text-gray-900 font-medium truncate" title={att.original_filename}>
+      <div
+        className="text-sm text-gray-900 font-medium truncate"
+        title={att.original_filename}
+      >
         {att.original_filename}
       </div>
       <div className="text-xs text-gray-500">
@@ -126,7 +130,8 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
   const load = async () => {
     try {
       const { data } = await api.get(`/api/rfis/${rfiId}/attachments/`);
-      setAttachments(data || []);
+      // Official-response attachments are shown inside OfficialResponsePanel
+      setAttachments((data || []).filter((a) => !a.is_official_response));
     } catch (err) {
       toast.error("Unable to load attachments.");
     } finally {
@@ -147,10 +152,7 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
 
     setUploading(true);
     try {
-      const { data } = await api.post(
-        `/api/rfis/${rfiId}/attachments/`,
-        fd
-      );
+      const { data } = await api.post(`/api/rfis/${rfiId}/attachments/`, fd);
       setAttachments((prev) => [...(data.created || []), ...prev]);
       if (data.errors && data.errors.length > 0) {
         data.errors.forEach((err) =>
@@ -172,9 +174,7 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
   const handleDelete = async (att) => {
     if (!window.confirm(`Delete ${att.original_filename}?`)) return;
     try {
-      await api.delete(
-        `/api/rfis/${rfiId}/attachments/${att.id}/`
-      );
+      await api.delete(`/api/rfis/${rfiId}/attachments/${att.id}/`);
       setAttachments((prev) => prev.filter((a) => a.id !== att.id));
     } catch (err) {
       const detail =

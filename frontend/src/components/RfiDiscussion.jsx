@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../api";
-import { toast } from "react-toastify";
+import toast from "../toast";
 
 const formatTimestamp = (iso) => {
   if (!iso) return "";

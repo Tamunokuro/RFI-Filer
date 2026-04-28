@@ -113,7 +113,7 @@ class RfiDiscussionTests(APITestCase):
     def test_pm_can_submit_official_response_and_close_rfi(self):
         self.client.force_authenticate(self.pm_user)
         url = reverse("rfis:rfi-official-response", args=[self.rfi.id])
-        r = self.client.post(url, {"body": "Proceed with Option A."}, format="json")
+        r = self.client.post(url, {"body": "Proceed with Option A."}, format="multipart")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.data["status"], Rfi.Status.CLOSED)
         self.assertEqual(r.data["official_response"], "Proceed with Option A.")
@@ -141,13 +141,13 @@ class RfiDiscussionTests(APITestCase):
             )
             self.client.force_authenticate(user)
             url = reverse("rfis:rfi-official-response", args=[rfi.id])
-            r = self.client.post(url, {"body": "Answer"}, format="json")
+            r = self.client.post(url, {"body": "Answer"}, format="multipart")
             self.assertEqual(r.status_code, status.HTTP_200_OK, msg=user.username)
 
     def test_contractor_cannot_submit_official_response(self):
         self.client.force_authenticate(self.contractor_user)
         url = reverse("rfis:rfi-official-response", args=[self.rfi.id])
-        r = self.client.post(url, {"body": "nope"}, format="json")
+        r = self.client.post(url, {"body": "nope"}, format="multipart")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.rfi.refresh_from_db()
         self.assertEqual(self.rfi.status, Rfi.Status.OPEN)
@@ -155,14 +155,14 @@ class RfiDiscussionTests(APITestCase):
     def test_cannot_submit_response_on_already_closed_rfi(self):
         self.client.force_authenticate(self.pm_user)
         url = reverse("rfis:rfi-official-response", args=[self.rfi.id])
-        self.client.post(url, {"body": "First answer"}, format="json")
-        r = self.client.post(url, {"body": "Second answer"}, format="json")
+        self.client.post(url, {"body": "First answer"}, format="multipart")
+        r = self.client.post(url, {"body": "Second answer"}, format="multipart")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_empty_official_response_rejected(self):
         self.client.force_authenticate(self.pm_user)
         url = reverse("rfis:rfi-official-response", args=[self.rfi.id])
-        r = self.client.post(url, {"body": ""}, format="json")
+        r = self.client.post(url, {"body": ""}, format="multipart")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     # ---------- unread tracking ----------
@@ -210,6 +210,138 @@ class RfiDiscussionTests(APITestCase):
         summary_url = reverse("rfis:rfi-unread-summary")
         r = self.client.get(summary_url)
         self.assertEqual(r.data.get(str(self.rfi.id)), 1)
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class RfiOfficialResponseAttachmentTests(APITestCase):
+    """Official response endpoint: files sent in the same multipart request."""
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(TMP_MEDIA, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.pm_user, self.pm_member = _make_user_member(
+            "pm_or_att", Member.Role.PROJECT_MANAGER
+        )
+        self.contractor_user, self.contractor_member = _make_user_member(
+            "contractor_or_att", Member.Role.CONTRACTOR
+        )
+        self.project = Project.objects.create(
+            project_number="OR-ATT", project_name="Official Response Attachments"
+        )
+        for m in (self.pm_member, self.contractor_member):
+            ProjectMembership.objects.create(project=self.project, member=m, role=m.role)
+        self.rfi = Rfi.objects.create(
+            project=self.project,
+            author=self.pm_user,
+            trade="M",
+            rfi_name="Duct",
+            rfi_number="OR-1",
+            received_date=date.today(),
+            due_date=date.today() + timedelta(days=5),
+        )
+        self.url = reverse("rfis:rfi-official-response", args=[self.rfi.id])
+
+    def _post_response(self, body="Official answer.", files=None):
+        """Helper: POST to the official-response endpoint with optional files."""
+        data = {"body": body}
+        if files:
+            data["files"] = files
+        return self.client.post(self.url, data, format="multipart")
+
+    def test_text_only_response_still_works(self):
+        """Submitting without files must behave exactly as before."""
+        self.client.force_authenticate(self.pm_user)
+        r = self._post_response()
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["status"], Rfi.Status.CLOSED)
+        self.assertEqual(r.data["official_response"], "Official answer.")
+        self.assertEqual(r.data["official_response_attachments"], [])
+        self.assertEqual(RfiAttachment.objects.count(), 0)
+
+    def test_response_with_single_file_creates_attachment(self):
+        self.client.force_authenticate(self.pm_user)
+        pdf = SimpleUploadedFile("decision.pdf", b"pdf content", content_type="application/pdf")
+        r = self._post_response(files=pdf)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["status"], Rfi.Status.CLOSED)
+
+        att = RfiAttachment.objects.get()
+        self.assertTrue(att.is_official_response)
+        self.assertEqual(att.original_filename, "decision.pdf")
+        self.assertEqual(att.uploaded_by, self.pm_member)
+
+        # Serialized response includes the attachment
+        self.assertEqual(len(r.data["official_response_attachments"]), 1)
+        self.assertEqual(r.data["official_response_attachments"][0]["original_filename"], "decision.pdf")
+        self.assertTrue(r.data["official_response_attachments"][0]["is_official_response"])
+
+    def test_response_with_multiple_files(self):
+        self.client.force_authenticate(self.pm_user)
+        f1 = SimpleUploadedFile("a.pdf", b"x", content_type="application/pdf")
+        f2 = SimpleUploadedFile("b.png", b"y", content_type="image/png")
+        data = {"body": "Multi-file answer.", "files": [f1, f2]}
+        r = self.client.post(self.url, data, format="multipart")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(RfiAttachment.objects.count(), 2)
+        self.assertEqual(len(r.data["official_response_attachments"]), 2)
+        for att_data in r.data["official_response_attachments"]:
+            self.assertTrue(att_data["is_official_response"])
+
+    def test_disallowed_file_type_rejected_and_rfi_stays_open(self):
+        """If any file is invalid the whole request must be rejected atomically."""
+        self.client.force_authenticate(self.pm_user)
+        bad = SimpleUploadedFile("hack.exe", b"evil", content_type="application/x-msdownload")
+        r = self._post_response(files=bad)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("errors", r.data)
+        # RFI must remain open and no DB records created
+        self.rfi.refresh_from_db()
+        self.assertEqual(self.rfi.status, Rfi.Status.OPEN)
+        self.assertEqual(RfiAttachment.objects.count(), 0)
+        self.assertEqual(RfiComment.objects.count(), 0)
+
+    def test_oversized_file_rejected(self):
+        """Lower the limit to 1 byte via patch so a 2-byte file triggers it."""
+        from unittest.mock import patch
+        self.client.force_authenticate(self.pm_user)
+        with patch("rfis.views.MAX_ATTACHMENT_SIZE_BYTES", 1):
+            small_but_over_limit = SimpleUploadedFile(
+                "over.pdf", b"xy", content_type="application/pdf"
+            )
+            r = self._post_response(files=small_but_over_limit)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("errors", r.data)
+        self.rfi.refresh_from_db()
+        self.assertEqual(self.rfi.status, Rfi.Status.OPEN)
+        self.assertEqual(RfiAttachment.objects.count(), 0)
+
+    def test_official_response_attachments_not_in_general_listing(self):
+        """Attachments flagged is_official_response must still appear in the
+        general /attachments/ listing (the frontend filters them client-side)."""
+        self.client.force_authenticate(self.pm_user)
+        pdf = SimpleUploadedFile("ref.pdf", b"data", content_type="application/pdf")
+        self._post_response(files=pdf)
+
+        att_url = reverse("rfis:rfi-attachments", args=[self.rfi.id])
+        r = self.client.get(att_url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(r.data), 1)
+        self.assertTrue(r.data[0]["is_official_response"])
+
+    def test_rfi_serializer_includes_official_response_attachments_on_get(self):
+        """After the RFI is closed, fetching it via GET must include the attachments."""
+        self.client.force_authenticate(self.pm_user)
+        pdf = SimpleUploadedFile("final.pdf", b"ok", content_type="application/pdf")
+        self._post_response(files=pdf)
+
+        rfi_url = reverse("rfis:rfi-detail", args=[self.rfi.id])
+        r = self.client.get(rfi_url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(r.data["official_response_attachments"]), 1)
+        self.assertEqual(r.data["official_response_attachments"][0]["original_filename"], "final.pdf")
 
 
 @override_settings(MEDIA_ROOT=TMP_MEDIA)
@@ -420,3 +552,130 @@ class RfiAssignedToFilterTests(APITestCase):
         self.assertIn(self.rfi_alice.id, ids)
         self.assertIn(self.rfi_bob.id, ids)
         self.assertIn(self.rfi_both.id, ids)
+
+
+class MeProfileUpdateTests(APITestCase):
+    """Tests for GET and PATCH /api/me/ — profile viewing and editing."""
+
+    def setUp(self):
+        self.user, self.member = _make_user_member(
+            "profiler", Member.Role.PROJECT_DESIGNER
+        )
+        self.other_user, self.other_member = _make_user_member(
+            "other_profiler", Member.Role.CONTRACTOR
+        )
+        self.url = reverse("rfis:me")
+
+    # ------------------------------------------------------------------ GET --
+
+    def test_get_me_returns_own_profile(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["username"], "profiler")
+        self.assertEqual(r.data["member"]["name"], "Profiler")
+        self.assertEqual(r.data["member"]["email"], "profiler@example.com")
+        self.assertEqual(r.data["member"]["role"], Member.Role.PROJECT_DESIGNER)
+
+    def test_get_me_unauthenticated_returns_401(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # --------------------------------------------------------------- PATCH ---
+
+    def test_patch_updates_name(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(self.url, {"name": "Updated Name"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["member"]["name"], "Updated Name")
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.name, "Updated Name")
+
+    def test_patch_updates_email_and_syncs_user_email(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(self.url, {"email": "updated@example.com"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["member"]["email"], "updated@example.com")
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.email, "updated@example.com")
+        # User.email must be kept in sync
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "updated@example.com")
+
+    def test_patch_updates_both_name_and_email(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(
+            self.url,
+            {"name": "Full Update", "email": "both@example.com"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["member"]["name"], "Full Update")
+        self.assertEqual(r.data["member"]["email"], "both@example.com")
+
+    def test_patch_allows_resubmitting_own_email(self):
+        """Saving with the current email must not trigger a uniqueness error."""
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(
+            self.url, {"email": "profiler@example.com"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_patch_rejects_duplicate_email(self):
+        """Attempting to take another member's email must be rejected."""
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(
+            self.url,
+            {"email": "other_profiler@example.com"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", r.data)
+        # Member email must be unchanged
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.email, "profiler@example.com")
+
+    def test_patch_rejects_blank_name(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(self.url, {"name": "   "}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.data)
+
+    def test_patch_rejects_empty_name(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(self.url, {"name": ""}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.data)
+
+    def test_patch_unauthenticated_returns_401(self):
+        r = self.client.patch(self.url, {"name": "Hacker"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_patch_ignores_read_only_fields(self):
+        """Sending role or is_admin must be silently ignored — not applied."""
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(
+            self.url,
+            {"role": Member.Role.PROJECT_MANAGER, "is_admin": True},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.role, Member.Role.PROJECT_DESIGNER)
+        self.assertFalse(self.member.is_admin)
+
+    def test_patch_strips_whitespace_from_name(self):
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(self.url, {"name": "  Trimmed  "}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.name, "Trimmed")
+
+    def test_patch_response_includes_full_member_payload(self):
+        """Response shape must include all member fields the frontend depends on."""
+        self.client.force_authenticate(self.user)
+        r = self.client.patch(self.url, {"name": "Shape Check"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        member_data = r.data["member"]
+        for field in ("id", "name", "email", "role", "company", "discipline", "phone", "is_admin"):
+            self.assertIn(field, member_data, msg=f"Missing field: {field}")

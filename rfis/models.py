@@ -144,6 +144,7 @@ class RfiAttachment(models.Model):
     content_type = models.CharField(max_length=120, blank=True)
     size = models.PositiveBigIntegerField(default=0)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_official_response = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-uploaded_at", "-id"]

@@ -1,3 +1,4 @@
+import re
 from django.db.models import Count, Q
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
@@ -19,6 +20,7 @@ from .models import Project, Rfi, Member, ProjectMembership, RfiComment, RfiRead
 from .serializer import (
     ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer,
     RfiCommentSerializer, OfficialResponseSerializer, RfiAttachmentSerializer,
+    MemberProfileUpdateSerializer,
 )
 
 
@@ -77,11 +79,8 @@ class UserCreateView(APIView):
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request):
-        user = request.user
-        member = getattr(user, "member", None)
-
-        return Response({
+    def _member_payload(self, user, member):
+        return {
             "id": user.id,
             "username": user.username,
             "email": user.email,
@@ -95,8 +94,36 @@ class MeView(APIView):
                 "discipline": member.discipline,
                 "phone": member.phone,
                 "is_admin": member.is_admin,
-            } if member else None
-        })
+            } if member else None,
+        }
+
+    def get(self, request):
+        user = request.user
+        member = getattr(user, "member", None)
+        return Response(self._member_payload(user, member))
+
+    def patch(self, request):
+        user = request.user
+        member = getattr(user, "member", None)
+        if member is None:
+            return Response(
+                {"detail": "No member profile associated with this account."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = MemberProfileUpdateSerializer(member, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        updated_member = serializer.save()
+
+        # Keep User.email in sync with Member.email
+        new_email = serializer.validated_data.get("email")
+        if new_email and new_email != user.email:
+            user.email = new_email
+            user.save(update_fields=["email"])
+
+        return Response(self._member_payload(user, updated_member))
     
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -210,6 +237,30 @@ class ProjectMembers(APIView):
         members = project.members.select_related("user").all()
         return Response(MemberSerializer(members, many=True).data)
 
+class ProjectNextRfiNumber(APIView):
+    """
+    GET /api/projects/<pk>/next-rfi-number/
+    Inspects every existing RFI for the project, finds the highest numeric
+    suffix in the rfi_number field, and returns the next value formatted as
+    RFI-XXX (3-digit zero-padded).  Falls back to RFI-001 for new projects.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        project = get_object_or_404(Project, pk=pk)
+        numbers = Rfi.objects.filter(project=project).values_list("rfi_number", flat=True)
+
+        max_num = 0
+        for rfi_number in numbers:
+            # Match the last run of digits in the string, e.g. "RFI-007" → 7
+            match = re.search(r"(\d+)\s*$", rfi_number.strip())
+            if match:
+                max_num = max(max_num, int(match.group(1)))
+
+        next_number = f"RFI-{max_num + 1:03d}"
+        return Response({"next_rfi_number": next_number})
+
+
 class ProjectDetail(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -258,6 +309,10 @@ class RfiListCreate(APIView):
         assigned_to_id = request.query_params.get("assigned_to")
         if assigned_to_id:
             qs = qs.filter(assigned_to__id=assigned_to_id).distinct()
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
 
         term = request.query_params.get("search")
         if term:
@@ -382,6 +437,7 @@ class RfiCommentListCreate(APIView):
 
 class RfiOfficialResponse(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, pk):
         rfi = get_object_or_404(Rfi, pk=pk)
@@ -402,6 +458,21 @@ class RfiOfficialResponse(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         body = serializer.validated_data["body"]
+        files = request.FILES.getlist("files")
+
+        # Validate every file before touching the database
+        file_errors = []
+        for f in files:
+            if f.size > MAX_ATTACHMENT_SIZE_BYTES:
+                file_errors.append({"filename": f.name, "error": "File exceeds 50 MB limit."})
+            elif f.content_type and f.content_type.lower() not in ALLOWED_ATTACHMENT_CONTENT_TYPES:
+                file_errors.append({"filename": f.name, "error": f"File type '{f.content_type}' is not permitted."})
+        if file_errors:
+            return Response(
+                {"detail": "One or more files were rejected.", "errors": file_errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         now = timezone.now()
         with transaction.atomic():
             RfiComment.objects.create(
@@ -418,8 +489,21 @@ class RfiOfficialResponse(APIView):
             rfi.save(update_fields=[
                 "status", "official_response", "responded_by", "responded_at", "closed_at",
             ])
+            for f in files:
+                RfiAttachment.objects.create(
+                    rfi=rfi,
+                    uploaded_by=member,
+                    file=f,
+                    original_filename=f.name,
+                    content_type=(f.content_type or "").lower(),
+                    size=f.size,
+                    is_official_response=True,
+                )
 
-        return Response(RfiSerializer(rfi).data, status=status.HTTP_200_OK)
+        return Response(
+            RfiSerializer(rfi, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class RfiMarkRead(APIView):

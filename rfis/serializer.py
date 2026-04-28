@@ -81,6 +81,27 @@ class MemberSerializer(serializers.ModelSerializer):
             "user": {"read_only": True},  # set from request if you expose create member API
         }
 
+
+class MemberProfileUpdateSerializer(serializers.ModelSerializer):
+    """Allows a member to update only their own name and email."""
+
+    class Meta:
+        model = Member
+        fields = ["name", "email"]
+
+    def validate_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Name cannot be blank.")
+        return value.strip()
+
+    def validate_email(self, value):
+        qs = Member.objects.filter(email=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("A member with this email already exists.")
+        return value
+
 class RfiSerializer(serializers.ModelSerializer):
     project_number = serializers.CharField(source="project.project_number", read_only=True)
     project_name = serializers.CharField(source="project.project_name", read_only=True)
@@ -99,6 +120,11 @@ class RfiSerializer(serializers.ModelSerializer):
     author = serializers.PrimaryKeyRelatedField(read_only=True)
 
     responded_by_name = serializers.CharField(source="responded_by.name", read_only=True, default="")
+    official_response_attachments = serializers.SerializerMethodField()
+
+    def get_official_response_attachments(self, obj):
+        qs = obj.attachments.filter(is_official_response=True)
+        return RfiAttachmentSerializer(qs, many=True, context=self.context).data
 
     class Meta:
         model = Rfi
@@ -108,12 +134,12 @@ class RfiSerializer(serializers.ModelSerializer):
             "assigned_to", "assigned_to_detail",
             "received_date", "due_date", "question", "proposed_solution", "slug",
             "status", "official_response", "responded_by", "responded_by_name",
-            "responded_at", "closed_at",
+            "responded_at", "closed_at", "official_response_attachments",
         ]
         read_only_fields = [
             "id", "slug", "author",
             "status", "official_response", "responded_by", "responded_by_name",
-            "responded_at", "closed_at",
+            "responded_at", "closed_at", "official_response_attachments",
         ]
 
     def validate(self, attrs):
@@ -219,11 +245,13 @@ class RfiAttachmentSerializer(serializers.ModelSerializer):
         model = RfiAttachment
         fields = [
             "id", "rfi", "file", "file_url", "original_filename",
-            "content_type", "size", "uploaded_by", "uploaded_by_name", "uploaded_at",
+            "content_type", "size", "uploaded_by", "uploaded_by_name",
+            "uploaded_at", "is_official_response",
         ]
         read_only_fields = [
             "id", "rfi", "file_url", "original_filename", "content_type",
             "size", "uploaded_by", "uploaded_by_name", "uploaded_at",
+            "is_official_response",
         ]
         extra_kwargs = {"file": {"write_only": True}}
 

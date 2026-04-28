@@ -4,10 +4,24 @@ import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
 import Footer from "./Footer";
 import RFiDeleteButton from "./DeleteButton";
-import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
+import {
+  MagnifyingGlassIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
+  ArrowDownTrayIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/20/solid";
 import Header from "./Header";
+import { exportRfisToExcel } from "../utils/exportRfisToExcel";
+import AssigneeAvatars from "./AssigneeAvatars";
 
 const UNREAD_POLL_MS = 30000;
+
+const formatUnreadCount = (count) => {
+  if (!count || count <= 0) return null;
+  return count > 999 ? "999+" : count;
+};
+
 
 const RfiList = () => {
   const navigate = useNavigate();
@@ -20,6 +34,8 @@ const RfiList = () => {
   const [prev, setPrev] = useState(null);
   const [count, setCount] = useState(0);
   const [unreadMap, setUnreadMap] = useState({});
+  const [exporting, setExporting] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const pageSize = 10;
 
   useEffect(() => {
@@ -30,9 +46,10 @@ const RfiList = () => {
     }
 
     const fetchRfis = async () => {
+      setFetching(true);
       try {
         const response = await api.get("/api/rfis/", {
-          params: { page, search: searchTerm },
+          params: { page, search: searchTerm, status: "open" },
         });
         setRfis(response.data.results);
         setNext(response.data.next);
@@ -43,6 +60,7 @@ const RfiList = () => {
         setError("Failed to load RFIs. Please try again later.");
       } finally {
         setLoading(false);
+        setFetching(false);
       }
     };
 
@@ -58,14 +76,40 @@ const RfiList = () => {
         const { data } = await api.get("/api/rfis/unread-summary/");
         setUnreadMap(data || {});
       } catch (err) {
-        /* non-fatal */
+        console.error("Error fetching unread summary:", err);
       }
     };
 
     fetchUnread();
     const id = setInterval(fetchUnread, UNREAD_POLL_MS);
+
     return () => clearInterval(id);
   }, []);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Fetch all pages so the export contains every matching RFI, not just
+      // the current page.
+      const allRfis = [];
+      let pg = 1;
+      let hasNext = true;
+      while (hasNext) {
+        const res = await api.get("/api/rfis/", {
+          params: { page: pg, search: searchTerm, status: "open" },
+        });
+        allRfis.push(...res.data.results);
+        hasNext = !!res.data.next;
+        pg++;
+      }
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await exportRfisToExcel(allRfis, `rfi-list-${dateStr}.xlsx`);
+    } catch (err) {
+      console.error("Export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -74,27 +118,20 @@ const RfiList = () => {
 
   const getStatusColor = (dueDate) => {
     if (!dueDate) return "bg-gray-100";
+
     const today = new Date();
     const due = new Date(dueDate);
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) return "bg-red-100 text-red-800";
     if (diffDays <= 3) return "bg-yellow-100 text-yellow-800";
+
     return "bg-green-100 text-green-800";
   };
 
   const renderStatus = (rfi) => {
-    if (rfi.status === "closed") {
-      return (
-        <span
-          className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-700"
-          data-testid={`rfi-status-${rfi.id}`}
-        >
-          Closed
-        </span>
-      );
-    }
     const overdue = new Date(rfi.due_date) < new Date();
+
     return (
       <span
         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
@@ -107,15 +144,70 @@ const RfiList = () => {
     );
   };
 
+  const renderMessageIndicator = (rfiId) => {
+    const unread = Number(unreadMap[String(rfiId)] || 0);
+    const unreadLabel = formatUnreadCount(unread);
+
+    return (
+      <span
+        className="relative inline-flex items-center justify-center"
+        title={
+          unread > 0
+            ? `${unread} unread message${unread === 1 ? "" : "s"}`
+            : "No unread messages"
+        }
+        aria-label={
+          unread > 0
+            ? `${unread} unread message${unread === 1 ? "" : "s"}`
+            : "No unread messages"
+        }
+        data-testid={`rfi-message-icon-${rfiId}`}
+      >
+        <ChatBubbleOvalLeftEllipsisIcon
+          className={`h-5 w-5 ${
+            unread > 0 ? "text-indigo-700" : "text-gray-400"
+          }`}
+        />
+
+        {unreadLabel && (
+          <span
+            className="absolute -right-2.5 -top-2 min-w-[1.15rem] h-[1.15rem] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none flex items-center justify-center ring-2 ring-white"
+            data-testid={`rfi-unread-${rfiId}`}
+          >
+            {unreadLabel}
+          </span>
+        )}
+      </span>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="mx-auto w-full max-w-7xl px-6 py-8">
+          <Header title="RFI List" />
+          <p className="text-center text-gray-500 py-8">Loading RFIs...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <Header title="RFI List" />
 
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Search bar */}
-        <div className="py-5 mb-6">
+        <div className="py-5 mb-2">
           <div className="relative max-w-md mx-auto">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
               placeholder="Search RFIs..."
@@ -129,14 +221,28 @@ const RfiList = () => {
           </div>
         </div>
 
+        {/* Export button — right-aligned below search */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleExport}
+            disabled={exporting || rfis.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
+            title="Export all matching RFIs to Excel"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            {exporting ? "Exporting…" : "Export to Excel"}
+          </button>
+        </div>
+
         {/* Table */}
-        <div className="opy-3 w-full overflow-x-auto lg:overflow-visible">
+        <div className={`py-3 w-full overflow-x-auto lg:overflow-visible transition-opacity duration-150 ${fetching ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 {[
                   "Project Number",
                   "RFI Number",
+                  "Messages",
                   "RFI Name",
                   "Project",
                   "Trade",
@@ -155,55 +261,52 @@ const RfiList = () => {
                 ))}
               </tr>
             </thead>
+
             <tbody className="bg-white divide-y divide-gray-200">
-              {rfis.map((rfi) => {
-                const unread = Number(unreadMap[String(rfi.id)] || 0);
-                return (
+              {rfis.map((rfi) => (
                 <tr
                   key={rfi.id}
-                  className={`hover:bg-gray-50 cursor-pointer ${
-                    rfi.status === "closed" ? "opacity-70" : ""
-                  }`}
+                  className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
                 >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {rfi.project_number}
                   </td>
+
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <span className="inline-flex items-center gap-2">
-                      {rfi.rfi_number}
-                      {unread > 0 && (
-                        <span
-                          className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-semibold"
-                          title={`${unread} unread message${unread === 1 ? "" : "s"}`}
-                          data-testid={`rfi-unread-${rfi.id}`}
-                        >
-                          {unread}
-                        </span>
-                      )}
-                    </span>
+                    {rfi.rfi_number}
                   </td>
+
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {renderMessageIndicator(rfi.id)}
+                  </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.rfi_name}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.project_name}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {rfi.trade}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {formatDate(rfi.received_date)}
                   </td>
+
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {formatDate(rfi.due_date)}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {rfi.assigned_to_detail?.length
-                      ? rfi.assigned_to_detail.map((m) => m.name).join(", ")
-                      : "—"}
+
+                  <td className="px-6 py-4">
+                    <AssigneeAvatars members={rfi.assigned_to_detail} />
                   </td>
+
                   <td className="px-6 py-4">{renderStatus(rfi)}</td>
+
                   <td
                     className="px-4 py-4"
                     onClick={(e) => e.stopPropagation()}
@@ -215,16 +318,14 @@ const RfiList = () => {
                       projectName={rfi.project_name}
                       projectNumber={rfi.project_number}
                       rfiNumber={rfi.rfi_number}
-                      onDelete={(deletedId) =>
-                        setRfis((prev) =>
-                          prev.filter((rfi) => rfi.id !== deletedId)
-                        )
-                      }
+                      onDelete={(deletedId) => {
+                        setRfis((prev) => prev.filter((r) => r.id !== deletedId));
+                        setCount((c) => Math.max(c - 1, 0));
+                      }}
                     />
                   </td>
                 </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
@@ -236,43 +337,46 @@ const RfiList = () => {
           </div>
         )}
 
-        {/* Pagination */}
-        {count > 0 && (
-          <div className="flex flex-col items-center gap-2 my-6">
-            <div className="flex gap-4">
-              <button
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                disabled={!prev}
-                className={`px-3 py-1 rounded ${
-                  prev
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-gray-300 text-gray-600 cursor-not-allowed"
-                }`}
-              >
-                Prev
-              </button>
+        {/* Pagination — only shown when there is more than one page */}
+        {count > pageSize && (
+          <div className="flex items-center justify-center gap-4 my-6">
+            <button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={!prev || fetching}
+              className={`flex items-center gap-1 px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-150 ${
+                prev && !fetching
+                  ? "bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 text-white shadow-md"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+              Prev
+            </button>
 
-              <span className="px-3 py-1 text-sm font-medium text-gray-700">
-                Page {page}
-                {count > pageSize && ` of ${Math.ceil(count / pageSize)}`} (
-                {count} results)
+            <span className="text-sm font-medium text-gray-600">
+              Page <span className="font-bold text-gray-800">{page}</span> of{" "}
+              <span className="font-bold text-gray-800">
+                {Math.ceil(count / pageSize)}
               </span>
+              <span className="ml-2 text-gray-400">({count} results)</span>
+            </span>
 
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={!next}
-                className={`px-3 py-1 rounded ${
-                  next
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-gray-300 text-gray-600 cursor-not-allowed"
-                }`}
-              >
-                Next
-              </button>
-            </div>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!next || fetching}
+              className={`flex items-center gap-1 px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-150 ${
+                next && !fetching
+                  ? "bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 text-white shadow-md"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              Next
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>
+
       <Footer />
     </div>
   );
