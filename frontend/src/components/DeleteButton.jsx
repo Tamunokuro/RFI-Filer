@@ -21,7 +21,7 @@ const RFiDeleteButton = ({
     setError("");
 
     try {
-      await api.delete(`/api/rfis-delete/${pk}/${rfiSlug}/`);
+      await api.delete(`/api/rfis/${pk}/`);
       setShowModal(false);
       if (onDelete) {
         onDelete(pk);

@@ -12,6 +12,7 @@ from .views import (
     ResetPasswordView,
     CustomTokenObtainPairView,
     RfiCommentListCreate, RfiOfficialResponse, RfiMarkRead, RfiUnreadSummary,
+    RfiNotifications, RfiMarkAllRead,
     RfiAttachmentListCreate, RfiAttachmentDetail,
 )
 
@@ -32,6 +33,8 @@ urlpatterns = [
     # GET /api/rfis/?project=<id>  (filter by project)
     path("rfis/", RfiListCreate.as_view(), name="rfi-list"),
     path("rfis/unread-summary/", RfiUnreadSummary.as_view(), name="rfi-unread-summary"),
+    path("rfis/notifications/", RfiNotifications.as_view(), name="rfi-notifications"),
+    path("rfis/mark-all-read/", RfiMarkAllRead.as_view(), name="rfi-mark-all-read"),
     path("rfis/<int:pk>/", RfiDetail.as_view(), name="rfi-detail"),
     path("rfis/<int:pk>/comments/", RfiCommentListCreate.as_view(), name="rfi-comments"),
     path("rfis/<int:pk>/official-response/", RfiOfficialResponse.as_view(), name="rfi-official-response"),

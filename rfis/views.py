@@ -627,6 +627,99 @@ class RfiUnreadSummary(APIView):
         return Response(unread)
 
 
+class RfiNotifications(APIView):
+    """
+    GET /api/rfis/notifications/
+    Returns one entry per RFI that has unread comments for the current member,
+    ordered by most-recent activity first.  Includes enough detail to render a
+    notification panel (RFI number/name, project, author name, message snippet,
+    timestamp, unread count).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        member = getattr(request.user, "member", None)
+        if member is None:
+            return Response([])
+
+        read_map = dict(
+            RfiReadState.objects.filter(member=member).values_list("rfi_id", "last_read_at")
+        )
+
+        # Fetch all comments not authored by the current member, newest first,
+        # with related data pre-loaded to avoid N+1 queries.
+        comments = (
+            RfiComment.objects
+            .exclude(author=member)
+            .select_related("rfi", "rfi__project", "author")
+            .order_by("-created_at")
+        )
+
+        # Group by RFI — the first comment we encounter per RFI is the latest.
+        rfi_map = {}
+        for comment in comments:
+            rfi_id = comment.rfi_id
+            last_read = read_map.get(rfi_id)
+            if last_read is not None and comment.created_at <= last_read:
+                continue  # this comment has been read
+
+            if rfi_id not in rfi_map:
+                rfi = comment.rfi
+                rfi_map[rfi_id] = {
+                    "rfi_id": rfi_id,
+                    "rfi_number": rfi.rfi_number,
+                    "rfi_name": rfi.rfi_name,
+                    "rfi_slug": rfi.slug,
+                    "project_number": rfi.project.project_number,
+                    "project_name": rfi.project.project_name,
+                    "unread_count": 0,
+                    "latest_author": comment.author.name if comment.author else "Unknown",
+                    "latest_body": comment.body[:150],
+                    "latest_at": comment.created_at,
+                    "is_official": comment.is_official_response,
+                }
+            rfi_map[rfi_id]["unread_count"] += 1
+
+        result = sorted(rfi_map.values(), key=lambda x: x["latest_at"], reverse=True)
+        for item in result:
+            item["latest_at"] = item["latest_at"].isoformat()
+
+        return Response(result)
+
+
+class RfiMarkAllRead(APIView):
+    """
+    POST /api/rfis/mark-all-read/
+    Marks every RFI that has unread comments as read for the current member.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        member = getattr(request.user, "member", None)
+        if member is None:
+            return Response(
+                {"detail": "No member profile associated with this user."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        read_map = dict(
+            RfiReadState.objects.filter(member=member).values_list("rfi_id", "last_read_at")
+        )
+
+        unread_rfi_ids = set()
+        for row in RfiComment.objects.exclude(author=member).values("rfi_id", "created_at"):
+            rfi_id = row["rfi_id"]
+            last_read = read_map.get(rfi_id)
+            if last_read is None or row["created_at"] > last_read:
+                unread_rfi_ids.add(rfi_id)
+
+        for rfi_id in unread_rfi_ids:
+            state, _ = RfiReadState.objects.get_or_create(rfi_id=rfi_id, member=member)
+            state.save()  # auto_now refreshes last_read_at
+
+        return Response({"marked": len(unread_rfi_ids)})
+
+
 # ---------- Members (optional) ----------
 
 class MemberListCreate(APIView):

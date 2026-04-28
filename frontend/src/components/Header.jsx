@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
 import { FolderOpenIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
+import NotificationBell from "./NotificationBell";
 
 const Header = ({ title }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -45,6 +46,9 @@ const Header = ({ title }) => {
             >
               <ClipboardDocumentListIcon className="w-6 h-6" />
             </button>
+
+            {/* Notification bell — self-contained: polls badge, opens panel */}
+            <NotificationBell />
 
             <button
               onClick={() => navigate("/projects")}
