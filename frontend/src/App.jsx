@@ -15,6 +15,7 @@ import ProjectList from "./components/ProjectList";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import MemberDetail from "./pages/MemberDetail";
+import EmailInbox from "./pages/EmailInbox";
 
 import Toaster from "./components/Toaster";
 import { ThemeProvider } from "./context/Theme";
@@ -75,6 +76,14 @@ function App() {
           element={
             <PrivateRoute>
               <MemberDetail />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/email-inbox"
+          element={
+            <PrivateRoute>
+              <EmailInbox />
             </PrivateRoute>
           }
         />

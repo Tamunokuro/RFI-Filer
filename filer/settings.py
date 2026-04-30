@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "rfis",
+    "email_ingestion",
 ]
 
 MIDDLEWARE = [
