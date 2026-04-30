@@ -43,18 +43,18 @@ const RFiDeleteButton = ({
         <TrashIcon className="h-4 w-4" />
       </button>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/10 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
             <div className="flex items-center gap-3 mb-4">
               <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500" />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Confirm Deletion
               </h3>
             </div>
-            <p className="text-sm text-gray-700 mb-3">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
               Are you sure you want to delete the following RFI?
             </p>
-            <ul className="text-sm text-gray-800 space-y-1 mb-4">
+            <ul className="text-sm text-gray-800 dark:text-gray-200 space-y-1 mb-4">
               <li>
                 <span className="font-medium">RFI Name:</span> {rfiName}
               </li>
@@ -70,12 +70,12 @@ const RFiDeleteButton = ({
               </li>
             </ul>
 
-            {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+            {error && <p className="text-red-600 dark:text-red-400 text-sm mb-2">{error}</p>}
 
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>

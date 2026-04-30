@@ -90,7 +90,14 @@ class Rfi(models.Model):
     trade = models.CharField(max_length=10, default="M")
     rfi_name = models.CharField(max_length=200)
     rfi_number = models.CharField(max_length=50)
-    assigned_to = models.ManyToManyField(Member, related_name="assigned_rfis", blank=True)
+    designers = models.ManyToManyField(
+        Member, related_name="designed_rfis", blank=True,
+        help_text="Project Designers responsible for answering this RFI."
+    )
+    contract_administrators = models.ManyToManyField(
+        Member, related_name="administered_rfis", blank=True,
+        help_text="Contract Administrators overseeing this RFI."
+    )
     received_date = models.DateField()
     due_date = models.DateField()
     question = models.TextField(blank=True)

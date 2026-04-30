@@ -7,6 +7,7 @@ import toast from "../toast";
 import { ArrowRightIcon } from "@heroicons/react/20/solid";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/Auth";
+import "../styles/Forms.css";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -73,8 +74,9 @@ const Login = () => {
   };
 
   return (
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
     <div className="form-wrapper mt-10 max-w-md mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center text-blue-950 mb-6">
+      <h1 className="text-3xl font-bold text-center text-blue-950 dark:text-indigo-200 mb-6">
         Welcome back!
       </h1>
 
@@ -87,14 +89,14 @@ const Login = () => {
           <div className="sm:col-span-4">
             <label
               htmlFor="username"
-              className="block text-sm font-medium text-gray-900"
+              className="block text-sm font-medium text-gray-900 dark:text-gray-100"
             >
               Username
             </label>
 
             <div className="mt-2">
-              <div className="flex items-center rounded-md bg-white pl-3 outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                <div className="shrink-0 text-base text-gray-500 select-none">
+              <div className="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-600">
+                <div className="shrink-0 text-base text-gray-500 dark:text-gray-400 select-none">
                   Filer/
                 </div>
 
@@ -104,7 +106,7 @@ const Login = () => {
                   id="username"
                   onChange={handleChange}
                   value={formData.username}
-                  className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                  className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                   placeholder="janesmith"
                   required
                 />
@@ -115,27 +117,27 @@ const Login = () => {
           <div className="sm:col-span-4 mt-4">
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-900"
+              className="block text-sm font-medium text-gray-900 dark:text-gray-100"
             >
               Password
             </label>
 
             <div className="mt-2">
-              <div className="flex items-center rounded-md bg-white pl-3 pr-2 outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
+              <div className="flex items-center rounded-md bg-white dark:bg-gray-700 pl-3 pr-2 outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-600">
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
                   id="password"
                   onChange={handleChange}
                   value={formData.password}
-                  className="block min-w-0 grow py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                  className="block min-w-0 grow py-1.5 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="ml-2 shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  className="ml-2 shrink-0 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
@@ -174,7 +176,7 @@ const Login = () => {
             <ArrowRightIcon className="w-6 h-6" />
           </button>
 
-          <p className="mt-4 text-sm text-center">
+          <p className="mt-4 text-sm text-center dark:text-gray-300">
             Don&apos;t have an account?{" "}
             <Link to="/register" className="text-blue-700 hover:underline">
               Register
@@ -182,6 +184,7 @@ const Login = () => {
           </p>
         </form>
       </div>
+    </div>
     </div>
   );
 };

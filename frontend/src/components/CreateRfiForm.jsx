@@ -11,14 +11,23 @@ const CreateRfiForm = () => {
     projectMembers,
     handleChange,
     handleProjectSelect,
-    handleAssigneeChange,
+    handleDesignerChange,
+    handleContractAdminChange,
     handleSubmit,
   } = useCreateRfi();
 
+  // Filter project members by role for each picker
+  const designerMembers = projectMembers.filter(
+    (m) => m.role === "Project Designer"
+  );
+  const contractAdminMembers = projectMembers.filter(
+    (m) => m.role === "Contract Administrator"
+  );
+
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8">
-        <h2 className="text-3xl font-bold text-left text-indigo-950 mb-8">
+    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-950">
+      <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl p-8">
+        <h2 className="text-3xl font-bold text-left text-indigo-950 dark:text-indigo-200 mb-8">
           Create New RFI
         </h2>
 
@@ -27,7 +36,7 @@ const CreateRfiForm = () => {
           <div>
             <label
               htmlFor="project"
-              className="block text-sm/6 font-medium text-gray-900"
+              className="block text-sm/6 font-medium text-gray-900 dark:text-gray-100"
             >
               Project
             </label>
@@ -37,7 +46,7 @@ const CreateRfiForm = () => {
               value={formData.project}
               onChange={handleProjectSelect}
               required
-              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+              className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
             >
               <option value="">Select Project</option>
               {projects.map((project) => (
@@ -59,7 +68,7 @@ const CreateRfiForm = () => {
             <div key={name}>
               <label
                 htmlFor={name}
-                className="block text-sm/6 font-medium text-gray-900"
+                className="block text-sm/6 font-medium text-gray-900 dark:text-gray-100"
               >
                 {label}
               </label>
@@ -71,25 +80,46 @@ const CreateRfiForm = () => {
                 onChange={handleChange}
                 readOnly={!!ro}
                 required
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
               />
               {name === "rfi_number" && (
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                   Auto-suggested from existing RFIs — you can edit it if needed.
                 </p>
               )}
             </div>
           ))}
 
-          {/* Assigned To */}
+          {/* Designers */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">
-              Assigned To
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+              Designers
+              <span className="ml-1 text-red-500">*</span>
             </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Project Designers responsible for answering this RFI.
+            </p>
             <AssigneePicker
-              members={projectMembers}
-              value={formData.assigned_to || []}
-              onChange={handleAssigneeChange}
+              members={designerMembers}
+              value={formData.designers || []}
+              onChange={handleDesignerChange}
+              emptyMessage="No Project Designers in this project"
+            />
+          </div>
+
+          {/* Contract Administrators */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+              Contract Administrators
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Contract Administrators overseeing timelines and compliance.
+            </p>
+            <AssigneePicker
+              members={contractAdminMembers}
+              value={formData.contract_administrators || []}
+              onChange={handleContractAdminChange}
+              emptyMessage="No Contract Administrators in this project"
             />
           </div>
 
@@ -97,7 +127,7 @@ const CreateRfiForm = () => {
           <div>
             <label
               htmlFor="trade"
-              className="block text-sm/6 font-medium text-gray-900"
+              className="block text-sm/6 font-medium text-gray-900 dark:text-gray-100"
             >
               Discipline
             </label>
@@ -106,7 +136,7 @@ const CreateRfiForm = () => {
               id="trade"
               value={formData.trade}
               onChange={handleChange}
-              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+              className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
             >
               <option value="M">Mechanical</option>
               <option value="E">Electrical</option>
@@ -117,7 +147,7 @@ const CreateRfiForm = () => {
           </div>
 
           {/* Dates */}
-          <div className="flex justify-between space-x-4">
+          <div className="flex gap-4">
             <DateInput
               label="Received Date"
               name="received_date"
@@ -139,9 +169,10 @@ const CreateRfiForm = () => {
           <div>
             <label
               htmlFor="question"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Question
+              <span className="ml-1 text-red-500">*</span>
             </label>
             <textarea
               id="question"
@@ -149,7 +180,8 @@ const CreateRfiForm = () => {
               rows={3}
               value={formData.question}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
               placeholder="Describe the question or issue being raised..."
             />
           </div>
@@ -158,9 +190,10 @@ const CreateRfiForm = () => {
           <div>
             <label
               htmlFor="proposed_solution"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Proposed Solution
+              <span className="ml-1 text-red-500">*</span>
             </label>
             <textarea
               id="proposed_solution"
@@ -168,7 +201,8 @@ const CreateRfiForm = () => {
               rows={3}
               value={formData.proposed_solution}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
               placeholder="Suggest a possible solution or approach..."
             />
           </div>
@@ -177,7 +211,7 @@ const CreateRfiForm = () => {
           <div>
             <label
               htmlFor="attachments"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Attachments
             </label>
@@ -193,20 +227,20 @@ const CreateRfiForm = () => {
                   attachments: event.target.files,
                 }));
               }}
-              className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/40 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-900/60"
             />
 
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Allowed: PDF, images, Excel, CSV, video (MP4/MOV/WebM). Max 50 MB
               each.
             </p>
 
             {formData.attachments && formData.attachments.length > 0 && (
-              <ul className="mt-2 text-xs text-gray-700 list-disc list-inside space-y-0.5">
+              <ul className="mt-2 text-xs text-gray-700 dark:text-gray-300 list-disc list-inside space-y-0.5">
                 {Array.from(formData.attachments).map((file) => (
                   <li key={`${file.name}-${file.size}`}>
                     {file.name}{" "}
-                    <span className="text-gray-400">
+                    <span className="text-gray-400 dark:text-gray-500">
                       ({Math.round(file.size / 1024)} KB)
                     </span>
                   </li>

@@ -1,8 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
 @import "tailwindcss";
 
+/* Enable class-based dark mode — add/remove `dark` on <html> to toggle */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html,
 body {
   font-family: "Outfit", sans-serif;
+}
+
+/* Ensure the html root itself is dark when dark mode is active,
+   so no white browser-background bleeds through at edges or before
+   React renders its own background. */
+html.dark {
+  background-color: #030712; /* gray-950 */
 }
 

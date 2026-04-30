@@ -300,15 +300,21 @@ class RfiListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        qs = Rfi.objects.select_related("project", "author").prefetch_related("assigned_to")
+        qs = Rfi.objects.select_related("project", "author").prefetch_related(
+            "designers", "contract_administrators"
+        )
 
         project_id = request.query_params.get("project")
         if project_id:
             qs = qs.filter(project_id=project_id)
 
-        assigned_to_id = request.query_params.get("assigned_to")
-        if assigned_to_id:
-            qs = qs.filter(assigned_to__id=assigned_to_id).distinct()
+        # `assigned_to` kept as query-param name for backwards compat (MemberDetail page).
+        # Matches members that appear as a designer OR contract administrator.
+        member_id = request.query_params.get("assigned_to")
+        if member_id:
+            qs = qs.filter(
+                Q(designers__id=member_id) | Q(contract_administrators__id=member_id)
+            ).distinct()
 
         status_filter = request.query_params.get("status")
         if status_filter:
@@ -322,7 +328,8 @@ class RfiListCreate(APIView):
                 Q(trade__icontains=term) |
                 Q(project__project_number__icontains=term) |
                 Q(project__project_name__icontains=term) |
-                Q(assigned_to__name__icontains=term)
+                Q(designers__name__icontains=term) |
+                Q(contract_administrators__name__icontains=term)
             ).distinct()
 
         paginator = StandardPagination()
@@ -331,14 +338,14 @@ class RfiListCreate(APIView):
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
-        # Support comma-separated assigned_to (e.g., "1,2,3") in addition to JSON arrays.
+        # Support comma-separated designers / contract_administrators in addition to JSON arrays.
         data = request.data.copy()
-        assigned_raw = data.get("assigned_to")
-        if isinstance(assigned_raw, str):
-            # Split on commas and strip whitespaces; ignore empty segments
-            ids = [s.strip() for s in assigned_raw.split(",") if s.strip()]
-            if ids:
-                data.setlist("assigned_to", ids) if hasattr(data, "setlist") else data.update({"assigned_to": ids})
+        for field in ("designers", "contract_administrators"):
+            raw = data.get(field)
+            if isinstance(raw, str):
+                ids = [s.strip() for s in raw.split(",") if s.strip()]
+                if ids:
+                    data.setlist(field, ids) if hasattr(data, "setlist") else data.update({field: ids})
 
         serializer = RfiSerializer(data=data, context={"request": request})
         if not serializer.is_valid():
@@ -361,7 +368,7 @@ class RfiListCreate(APIView):
             # Unknown integrity error -> re-raise so you see it in logs
             raise
 
-        # Re-serialize to include read-only/nested fields (assigned_to_detail, project_* fields if you added them)
+        # Re-serialize to include read-only/nested fields (designers_detail, contract_administrators_detail, etc.)
         return Response(RfiSerializer(rfi).data, status=status.HTTP_201_CREATED)
 
 
@@ -370,7 +377,9 @@ class RfiDetail(APIView):
 
     def get_object(self, pk):
         return get_object_or_404(
-            Rfi.objects.select_related("project", "project__project_manager", "author").prefetch_related("assigned_to"),
+            Rfi.objects.select_related("project", "project__project_manager", "author").prefetch_related(
+                "designers", "contract_administrators"
+            ),
             pk=pk,
         )
 
@@ -382,7 +391,7 @@ class RfiDetail(APIView):
         rfi = self.get_object(pk)
         serializer = RfiSerializer(rfi, data=request.data, context={"request": request})
         if serializer.is_valid():
-            rfi = serializer.save()  # assigned_to handled in serializer.update
+            rfi = serializer.save()  # designers / contract_administrators handled in serializer.update
             return Response(RfiSerializer(rfi).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -855,7 +864,9 @@ class ChatGPTCompletion(APIView):
         # Build optional context from an RFI record
         if rfi_id:
             rfi = get_object_or_404(
-                Rfi.objects.select_related("project").prefetch_related("assigned_to"), pk=rfi_id
+                Rfi.objects.select_related("project").prefetch_related(
+                    "designers", "contract_administrators"
+                ), pk=rfi_id
             )
             rfi_ctx = build_rfi_context(rfi)
             sys_base = (

@@ -1,11 +1,13 @@
 import { useAuth } from "../context/Auth";
 import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
-import { FolderOpenIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
+import { FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
 import NotificationBell from "./NotificationBell";
+import { useTheme } from "../context/Theme";
 
 const Header = ({ title }) => {
+  const { theme, toggleTheme } = useTheme();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -30,32 +32,39 @@ const Header = ({ title }) => {
     logout(navigate);
   };
 
+  const iconBtn =
+    "hover:bg-blue-100 dark:hover:bg-gray-700 text-blue-800 dark:text-blue-300 p-2 rounded-full border border-blue-200 dark:border-gray-600 shadow-sm transition duration-150";
+
   return (
     <div className="flex justify-between items-center my-5 relative">
-      <h2 className="form-title font-bold text-3xl text-indigo-950">
+      <h2 className="form-title font-bold text-3xl text-indigo-950 dark:text-indigo-200">
         {title || "RFI Filer"}
       </h2>
 
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
         {isAuthenticated && (
           <>
-            <button
-              onClick={() => navigate("/")}
-              className="hover:bg-blue-100 text-blue-800 p-2 rounded-full border border-blue-200 shadow-sm transition duration-150"
-              title="RFI List"
-            >
+            <button onClick={() => navigate("/")} className={iconBtn} title="RFI List">
               <ClipboardDocumentListIcon className="w-6 h-6" />
             </button>
 
             {/* Notification bell — self-contained: polls badge, opens panel */}
             <NotificationBell />
 
-            <button
-              onClick={() => navigate("/projects")}
-              className="hover:bg-blue-100 text-blue-800 p-2 rounded-full border border-blue-200 shadow-sm transition duration-150"
-              title="View Projects"
-            >
+            <button onClick={() => navigate("/projects")} className={iconBtn} title="View Projects">
               <FolderOpenIcon className="w-6 h-6" />
+            </button>
+
+            {/* Day / Night toggle */}
+            <button
+              onClick={toggleTheme}
+              className={iconBtn}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark"
+                ? <SunIcon className="w-6 h-6" />
+                : <MoonIcon className="w-6 h-6" />}
             </button>
 
             <button
@@ -71,13 +80,13 @@ const Header = ({ title }) => {
         <div className="relative">
           <UserCircleIcon
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="w-8 h-8 text-blue-900 hover:text-indigo-950 cursor-pointer"
+            className="w-8 h-8 text-blue-900 dark:text-blue-300 hover:text-indigo-950 dark:hover:text-indigo-200 cursor-pointer"
           />
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-52 bg-neutral-50 rounded border border-slate-200 shadow-lg z-10 p-3">
-              <div className="text-sm mb-2 border-b border-gray-200 pb-2">
-                <p className="font-semibold text-gray-400">
+            <div className="absolute right-0 mt-2 w-52 bg-neutral-50 dark:bg-gray-800 rounded border border-slate-200 dark:border-gray-700 shadow-lg z-10 p-3">
+              <div className="text-sm mb-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                <p className="font-semibold text-gray-400 dark:text-gray-500">
                   {isAuthenticated ? `Filer: ${shownName}` : "Not logged in"}
                 </p>
               </div>
@@ -87,14 +96,14 @@ const Header = ({ title }) => {
                   <Link
                     to={`/members/${memberId}`}
                     onClick={() => setDropdownOpen(false)}
-                    className="block w-full font-semibold text-left px-2 py-2 text-sm text-blue-700 rounded transition duration-150 hover:bg-gray-100"
+                    className="block w-full font-semibold text-left px-2 py-2 text-sm text-blue-700 dark:text-blue-400 rounded transition duration-150 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Profile
                   </Link>
 
                   <button
                     onClick={handleLogout}
-                    className="block w-full font-semibold text-left px-2 py-2 text-sm text-red-600 rounded transition duration-150 hover:bg-gray-100"
+                    className="block w-full font-semibold text-left px-2 py-2 text-sm text-red-600 dark:text-red-400 rounded transition duration-150 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Logout
                   </button>
@@ -105,7 +114,7 @@ const Header = ({ title }) => {
                     setDropdownOpen(false);
                     navigate("/login");
                   }}
-                  className="block w-full font-semibold text-left px-2 py-2 text-sm text-blue-700 rounded transition duration-150 hover:bg-gray-100"
+                  className="block w-full font-semibold text-left px-2 py-2 text-sm text-blue-700 dark:text-blue-400 rounded transition duration-150 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   Login
                 </button>

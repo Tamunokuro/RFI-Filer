@@ -1,21 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api"; // Axios instance with token headers
+import api from "../api";
+import AssigneePicker from "./AssigneePicker";
 
 const UpdateRfiForm = () => {
   const { pk } = useParams();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    project: "",
     project_name: "",
     project_number: "",
     project_manager: "",
-    assigned_to: [], // keep IDs as an array
-    assigned_to_names: "", // <- derived display string
+    designers: [],
+    contract_administrators: [],
     trade: "",
     rfi_name: "",
     rfi_number: "",
-    subject: "",
     received_date: "",
     due_date: "",
     question: "",
@@ -23,46 +24,54 @@ const UpdateRfiForm = () => {
     status: "",
   });
 
+  const [projectMembers, setProjectMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch existing RFI data
+  // Fetch existing RFI data then load project members
   useEffect(() => {
     const fetchRfi = async () => {
       try {
-        const { data } = await api.get(`/api/rfis/${pk}/`); // no slug in URL
-        const names = Array.isArray(data.assigned_to_detail)
-          ? data.assigned_to_detail.map((m) => m.name).join(", ")
-          : "";
+        const { data } = await api.get(`/api/rfis/${pk}/`);
+
+        const designerIds = Array.isArray(data.designers) ? data.designers : [];
+        const caIds = Array.isArray(data.contract_administrators)
+          ? data.contract_administrators
+          : [];
 
         setFormData((prev) => ({
           ...prev,
+          project: data.project ?? "",
           project_name: data.project_name ?? "",
           project_number: data.project_number ?? "",
-          project_manager:
-            data.project_manager_name ?? prev.project_manager ?? "",
-          assigned_to: Array.isArray(data.assigned_to) ? data.assigned_to : [],
-          assigned_to_names: names,
+          project_manager: data.project_manager_name ?? "",
+          designers: designerIds,
+          contract_administrators: caIds,
           trade: data.trade ?? "",
           rfi_name: data.rfi_name ?? "",
           rfi_number: data.rfi_number ?? "",
-          subject: data.subject ?? "",
           received_date: data.received_date ?? "",
           due_date: data.due_date ?? "",
           question: data.question ?? "",
           proposed_solution: data.proposed_solution ?? "",
           status: data.status ?? "",
         }));
-      } catch (err) {
+
+        // Load project members so the pickers can show names
+        if (data.project) {
+          const membersRes = await api.get(`/api/projects/${data.project}/members/`);
+          setProjectMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
+        }
+      } catch {
         setError("Failed to load RFI data.");
       }
     };
+
     fetchRfi();
   }, [pk]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // If you later switch Assigned To to a multi-select, handle arrays here.
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -71,12 +80,12 @@ const UpdateRfiForm = () => {
     setLoading(true);
     setError("");
 
-    // Send only fields the API expects; do not send *_names display-only fields
     const payload = {
       trade: formData.trade,
       rfi_name: formData.rfi_name,
       rfi_number: formData.rfi_number,
-      assigned_to: formData.assigned_to, // remains array of IDs
+      designers: formData.designers,
+      contract_administrators: formData.contract_administrators,
       received_date: formData.received_date,
       due_date: formData.due_date,
       question: formData.question,
@@ -86,150 +95,160 @@ const UpdateRfiForm = () => {
     try {
       await api.patch(`/api/rfis/${pk}/`, payload);
       navigate("/");
-    } catch (err) {
-      setError("Update failed.");
+    } catch {
+      setError("Update failed. Please check your input and try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const designerMembers = projectMembers.filter(
+    (m) => m.role === "Project Designer"
+  );
+  const contractAdminMembers = projectMembers.filter(
+    (m) => m.role === "Contract Administrator"
+  );
+
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8">
-        <h2 className="text-2xl font-bold text-indigo-950 mb-6">Update RFI</h2>
+    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-950">
+      <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl p-8 shadow">
+        <h2 className="text-2xl font-bold text-indigo-950 dark:text-indigo-200 mb-6">Update RFI</h2>
 
-        {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-red-500 dark:text-red-400 mb-4">{error}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Read-only project info */}
+          {[
+            { label: "Project Name",    name: "project_name",    ro: true },
+            { label: "Project Number",  name: "project_number",  ro: true },
+            { label: "Project Manager", name: "project_manager", ro: true },
+          ].map(({ label, name, ro }) => (
+            <div key={name}>
+              <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">{label}</label>
+              <input
+                type="text"
+                name={name}
+                value={formData[name]}
+                readOnly={ro}
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+              />
+            </div>
+          ))}
+
+          {/* RFI Name */}
           <div>
-            <label className="block font-medium text-gray-700">
-              Project Name
-            </label>
-            <input
-              type="text"
-              name="project_name"
-              value={formData.project_name}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              readOnly
-            />
-          </div>
-
-          <div>
-            <label className="block font-medium text-gray-700">RFI Name</label>
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">RFI Name</label>
             <input
               type="text"
               name="rfi_name"
               value={formData.rfi_name}
               onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
 
+          {/* RFI Number — locked */}
           <div>
-            <label className="block font-medium text-gray-700">
-              RFI Number
-            </label>
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">RFI Number</label>
             <input
               type="text"
               name="rfi_number"
               value={formData.rfi_number}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
               disabled
+              className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
             />
           </div>
 
+          {/* Designers */}
           <div>
-            <label className="block font-medium text-gray-700">
-              Assigned To
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm mb-1">
+              Designers
             </label>
-            <input
-              type="text"
-              name="assigned_to_names"
-              value={formData.assigned_to_names}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              readOnly
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Project Designers responsible for answering this RFI.
+            </p>
+            <AssigneePicker
+              members={designerMembers}
+              value={formData.designers}
+              onChange={(ids) => setFormData((p) => ({ ...p, designers: ids }))}
+              emptyMessage="No Project Designers in this project"
             />
-            {/* If you want to *edit* assignees here, replace the above with a multi-select
-                bound to formData.assigned_to (array of IDs), just like the Create form. */}
           </div>
 
+          {/* Contract Administrators */}
           <div>
-            <label className="block font-medium text-gray-700">
-              Project Manager
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm mb-1">
+              Contract Administrators
             </label>
-            <input
-              type="text"
-              name="project_manager"
-              value={formData.project_manager}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              readOnly
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Contract Administrators overseeing timelines and compliance.
+            </p>
+            <AssigneePicker
+              members={contractAdminMembers}
+              value={formData.contract_administrators}
+              onChange={(ids) =>
+                setFormData((p) => ({ ...p, contract_administrators: ids }))
+              }
+              emptyMessage="No Contract Administrators in this project"
             />
           </div>
 
-          <div className="flex justify-between space-x-4">
-            <div>
-              <label className="block font-medium text-gray-700">
-                Received Date
-              </label>
+          {/* Dates */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">Received Date</label>
               <input
                 type="date"
                 name="received_date"
                 value={formData.received_date}
                 onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [color-scheme:light] dark:[color-scheme:dark]"
               />
             </div>
-
-            <div>
-              <label className="block font-medium text-gray-700">
-                Due Date
-              </label>
+            <div className="flex-1">
+              <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">Due Date</label>
               <input
                 type="date"
                 name="due_date"
                 value={formData.due_date}
                 onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [color-scheme:light] dark:[color-scheme:dark]"
               />
             </div>
           </div>
 
+          {/* Question */}
           <div>
-            <label className="block font-medium text-gray-700">Question</label>
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">Question</label>
             <textarea
               name="question"
               rows={3}
               value={formData.question}
               onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              placeholder="Describe the question or issue being raised..."
+              className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              placeholder="Describe the question or issue being raised…"
             />
           </div>
 
+          {/* Proposed Solution */}
           <div>
-            <label className="block font-medium text-gray-700">
-              Proposed Solution
-            </label>
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">Proposed Solution</label>
             <textarea
               name="proposed_solution"
               rows={3}
               value={formData.proposed_solution}
               onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              placeholder="Suggest a possible solution or approach..."
+              className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              placeholder="Suggest a possible solution or approach…"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-indigo-700 text-white px-4 py-2 rounded hover:bg-indigo-800"
+            className="w-full py-2.5 px-6 text-white bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 rounded-md disabled:opacity-50 font-semibold transition duration-150"
           >
-            {loading ? "Updating..." : "Update RFI"}
+            {loading ? "Updating…" : "Update RFI"}
           </button>
         </form>
       </div>

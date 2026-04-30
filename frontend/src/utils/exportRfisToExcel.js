@@ -6,7 +6,7 @@
  *
  * Columns exported (messages/unread is intentionally omitted):
  *   Project Number | RFI Number | RFI Name | Project | Trade |
- *   Received | Due Date | Assigned To | Status
+ *   Received | Due Date | Designers | Contract Administrators | Status
  *
  * Row background colours mirror the Tailwind status badges in RfiList:
  *   Active   → green-100  (#dcfce7)
@@ -27,7 +27,8 @@ const COLUMNS = [
   { header: "Trade",          key: "trade",          width: 10 },
   { header: "Received",       key: "received_date",  width: 14 },
   { header: "Due Date",       key: "due_date",       width: 14 },
-  { header: "Assigned To",    key: "assigned_to",    width: 28 },
+  { header: "Designers",               key: "designers",               width: 28 },
+  { header: "Contract Administrators", key: "contract_administrators",  width: 28 },
   { header: "Status",         key: "status",         width: 13 },
 ];
 
@@ -91,9 +92,12 @@ export async function exportRfisToExcel(rfis, filename = "rfi-list.xlsx") {
       trade:          rfi.trade          ?? "",
       received_date:  fmtDate(rfi.received_date),
       due_date:       fmtDate(rfi.due_date),
-      assigned_to:    rfi.assigned_to_detail?.length
-                        ? rfi.assigned_to_detail.map((m) => m.name).join(", ")
-                        : "—",
+      designers:               rfi.designers_detail?.length
+                               ? rfi.designers_detail.map((m) => m.name).join(", ")
+                               : "—",
+      contract_administrators: rfi.contract_administrators_detail?.length
+                               ? rfi.contract_administrators_detail.map((m) => m.name).join(", ")
+                               : "—",
       status:         statusLabel(rfi.due_date),
     });
 
