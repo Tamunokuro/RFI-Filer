@@ -17,6 +17,7 @@ import ResetPassword from "./pages/ResetPassword";
 import MemberDetail from "./pages/MemberDetail";
 
 import Toaster from "./components/Toaster";
+import { ThemeProvider } from "./context/Theme";
 
 import { ACCESS_TOKEN } from "./constants";
 
@@ -27,6 +28,7 @@ const PrivateRoute = ({ children }) => {
 
 function App() {
   return (
+    <ThemeProvider>
     <Router>
       <Toaster />
 
@@ -78,6 +80,7 @@ function App() {
         />
       </Routes>
     </Router>
+    </ThemeProvider>
   );
 }
 

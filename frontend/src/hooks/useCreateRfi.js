@@ -9,18 +9,19 @@ const useCreateRfi = () => {
 
   const initialForm = {
     project: "",
-    project_number: "", // display only
-    project_name: "", // display only
-    project_manager: "", // display only
+    project_number: "",        // display only
+    project_name: "",          // display only
+    project_manager: "",       // display only
     trade: "M",
     rfi_name: "",
     rfi_number: "",
-    assigned_to: [], // <-- array of IDs
+    designers: [],             // array of Member IDs
+    contract_administrators: [], // array of Member IDs
     received_date: "",
     due_date: "",
     question: "",
     proposed_solution: "",
-    attachments: null, // FileList or Array from <input type="file" multiple>
+    attachments: null,         // FileList or Array from <input type="file" multiple>
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -74,7 +75,8 @@ const useCreateRfi = () => {
       project_name: proj?.project_name || "",
       project_manager: proj?.project_manager_name || "",
       rfi_number: "", // clear while fetching suggestion
-      assigned_to: [],
+      designers: [],
+      contract_administrators: [],
     }));
 
     setProjectMembers([]);
@@ -100,16 +102,6 @@ const useCreateRfi = () => {
   const handleChange = (e) => {
     const { name, value, multiple, selectedOptions } = e.target;
 
-    if (name === "assigned_to") {
-      const ids = multiple
-        ? Array.from(selectedOptions).map((o) => Number(o.value))
-        : value
-        ? [Number(value)]
-        : [];
-      setFormData((prev) => ({ ...prev, assigned_to: ids }));
-      return;
-    }
-
     if (name === "project") {
       // If you decide not to use handleProjectSelect on the select element,
       // we still support project change here (no member fetch in this path).
@@ -120,7 +112,8 @@ const useCreateRfi = () => {
         project_number: proj?.project_number || "",
         project_name: proj?.project_name || "",
         project_manager: proj?.project_manager_name || "",
-        assigned_to: [],
+        designers: [],
+        contract_administrators: [],
       }));
       return;
     }
@@ -135,10 +128,14 @@ const useCreateRfi = () => {
     if (!formData.rfi_name) errors.push("RFI name is required");
     if (!formData.rfi_number) errors.push("RFI number is required");
     // project_manager is display-only; don't require it
-    if (!formData.assigned_to || formData.assigned_to.length === 0)
-      errors.push("At least one assignee is required");
+    if (!formData.designers || formData.designers.length === 0)
+      errors.push("At least one Designer is required");
     if (!formData.received_date) errors.push("Received date is required");
     if (!formData.due_date) errors.push("Due date is required");
+    if (!formData.question || !formData.question.trim())
+      errors.push("Question is required");
+    if (!formData.proposed_solution || !formData.proposed_solution.trim())
+      errors.push("Proposed solution is required");
 
     if (formData.received_date && formData.due_date) {
       const received = new Date(formData.received_date);
@@ -171,7 +168,8 @@ const useCreateRfi = () => {
       trade: formData.trade,
       rfi_name: formData.rfi_name,
       rfi_number: formData.rfi_number,
-      assigned_to: formData.assigned_to, // array of IDs
+      designers: formData.designers,
+      contract_administrators: formData.contract_administrators,
       received_date: formData.received_date,
       due_date: formData.due_date,
       question: formData.question,
@@ -234,9 +232,13 @@ const useCreateRfi = () => {
     }
   };
 
-  // Called by AssigneePicker with the new array of selected IDs
-  const handleAssigneeChange = (newIds) => {
-    setFormData((prev) => ({ ...prev, assigned_to: newIds }));
+  // Called by AssigneePicker components
+  const handleDesignerChange = (newIds) => {
+    setFormData((prev) => ({ ...prev, designers: newIds }));
+  };
+
+  const handleContractAdminChange = (newIds) => {
+    setFormData((prev) => ({ ...prev, contract_administrators: newIds }));
   };
 
   return {
@@ -249,7 +251,8 @@ const useCreateRfi = () => {
     projectMembers,
     handleChange,
     handleProjectSelect,
-    handleAssigneeChange,
+    handleDesignerChange,
+    handleContractAdminChange,
     handleSubmit,
   };
 };

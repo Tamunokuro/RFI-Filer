@@ -109,12 +109,20 @@ class RfiSerializer(serializers.ModelSerializer):
         source="project.project_manager.name", read_only=True, default=""
     )
 
-    # writable IDs for assigning members
-    assigned_to = serializers.PrimaryKeyRelatedField(
+    # Designers — writable IDs + read-only detail
+    designers = serializers.PrimaryKeyRelatedField(
         queryset=Member.objects.all(), many=True, required=False
     )
-    # read-only detail for display
-    assigned_to_detail = MemberSerializer(source="assigned_to", many=True, read_only=True)
+    designers_detail = MemberSerializer(source="designers", many=True, read_only=True)
+
+    # Contract Administrators — writable IDs + read-only detail
+    contract_administrators = serializers.PrimaryKeyRelatedField(
+        queryset=Member.objects.all(), many=True, required=False
+    )
+    contract_administrators_detail = MemberSerializer(
+        source="contract_administrators", many=True, read_only=True
+    )
+
     # write project as PK; author comes from request.user
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     author = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -131,7 +139,8 @@ class RfiSerializer(serializers.ModelSerializer):
         fields = [
             "id", "project", "project_number", "project_name", "project_manager_name",
             "author", "trade", "rfi_name", "rfi_number",
-            "assigned_to", "assigned_to_detail",
+            "designers", "designers_detail",
+            "contract_administrators", "contract_administrators_detail",
             "received_date", "due_date", "question", "proposed_solution", "slug",
             "status", "official_response", "responded_by", "responded_by_name",
             "responded_at", "closed_at", "official_response_attachments",
@@ -142,30 +151,43 @@ class RfiSerializer(serializers.ModelSerializer):
             "responded_at", "closed_at", "official_response_attachments",
         ]
 
+    def _validate_project_members(self, project, members, field_name):
+        if not members:
+            return
+        project_member_ids = set(project.members.values_list("id", flat=True))
+        invalid = [m.id for m in members if m.id not in project_member_ids]
+        if invalid:
+            raise serializers.ValidationError(
+                {field_name: f"All {field_name.replace('_', ' ')} must be members of this project."}
+            )
+
     def validate(self, attrs):
         project = attrs.get("project") or getattr(self.instance, "project", None)
-        assignees = attrs.get("assigned_to")
-        if project and assignees:
-            project_member_ids = set(project.members.values_list("id", flat=True))
-            invalid = [m.id for m in assignees if m.id not in project_member_ids]
-            if invalid:
-                raise serializers.ValidationError(
-                    {"assigned_to": "All assignees must be members of this project."}
-                )
+        if project:
+            self._validate_project_members(project, attrs.get("designers"), "designers")
+            self._validate_project_members(
+                project, attrs.get("contract_administrators"), "contract_administrators"
+            )
         return attrs
 
     def create(self, validated_data):
-        assignees = validated_data.pop("assigned_to", [])
-        rfi = Rfi.objects.create(**validated_data)  # slug auto-set in model
-        if assignees:
-            rfi.assigned_to.set(assignees)
+        designers = validated_data.pop("designers", [])
+        contract_admins = validated_data.pop("contract_administrators", [])
+        rfi = Rfi.objects.create(**validated_data)
+        if designers:
+            rfi.designers.set(designers)
+        if contract_admins:
+            rfi.contract_administrators.set(contract_admins)
         return rfi
 
     def update(self, instance, validated_data):
-        assignees = validated_data.pop("assigned_to", None)
+        designers = validated_data.pop("designers", None)
+        contract_admins = validated_data.pop("contract_administrators", None)
         rfi = super().update(instance, validated_data)
-        if assignees is not None:
-            rfi.assigned_to.set(assignees)
+        if designers is not None:
+            rfi.designers.set(designers)
+        if contract_admins is not None:
+            rfi.contract_administrators.set(contract_admins)
         return rfi
 
 class ProjectMembershipSerializer(serializers.ModelSerializer):

@@ -140,10 +140,10 @@ const MemberDetail = () => {
 
   if (!member) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
         <div className="mx-auto w-full max-w-6xl px-6 py-8">
           <Header title="Profile" />
-          <p className="text-gray-500">Loading…</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading…</p>
         </div>
         <Footer />
       </div>
@@ -158,7 +158,7 @@ const MemberDetail = () => {
   }).length;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       <div className="mx-auto w-full max-w-6xl px-6 py-8 space-y-8">
         <Header title="Profile" />
 
@@ -171,7 +171,7 @@ const MemberDetail = () => {
             {isOwnProfile && !editOpen && (
               <button
                 onClick={openEditForm}
-                className="flex items-center gap-2 w-full justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition duration-150"
+                className="flex items-center gap-2 w-full justify-center rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/40 px-4 py-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition duration-150"
               >
                 <PencilSquareIcon className="h-4 w-4" />
                 Edit Profile
@@ -180,14 +180,14 @@ const MemberDetail = () => {
 
             {/* Inline edit form */}
             {isOwnProfile && editOpen && (
-              <div className="rounded-xl border border-indigo-200 bg-white p-5 shadow-sm">
+              <div className="rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-gray-800 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-900">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Edit Profile
                   </h3>
                   <button
                     onClick={() => setEditOpen(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     title="Cancel"
                   >
                     <XMarkIcon className="h-5 w-5" />
@@ -197,7 +197,7 @@ const MemberDetail = () => {
                 <form onSubmit={handleEditSave} className="space-y-4">
                   {/* Name */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Full Name
                     </label>
                     <input
@@ -206,14 +206,14 @@ const MemberDetail = () => {
                       onChange={(e) =>
                         setEditForm((f) => ({ ...f, name: e.target.value }))
                       }
-                      className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                        editErrors.name ? "border-red-400" : "border-gray-300"
+                      className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        editErrors.name ? "border-red-400" : "border-gray-300 dark:border-gray-600"
                       }`}
                       placeholder="Jane Smith"
                       required
                     />
                     {editErrors.name && (
-                      <p className="mt-1 text-xs text-red-600">
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                         {Array.isArray(editErrors.name)
                           ? editErrors.name[0]
                           : editErrors.name}
@@ -223,7 +223,7 @@ const MemberDetail = () => {
 
                   {/* Email */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Email
                     </label>
                     <input
@@ -232,14 +232,14 @@ const MemberDetail = () => {
                       onChange={(e) =>
                         setEditForm((f) => ({ ...f, email: e.target.value }))
                       }
-                      className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                        editErrors.email ? "border-red-400" : "border-gray-300"
+                      className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        editErrors.email ? "border-red-400" : "border-gray-300 dark:border-gray-600"
                       }`}
                       placeholder="you@example.com"
                       required
                     />
                     {editErrors.email && (
-                      <p className="mt-1 text-xs text-red-600">
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                         {Array.isArray(editErrors.email)
                           ? editErrors.email[0]
                           : editErrors.email}
@@ -266,7 +266,7 @@ const MemberDetail = () => {
                     <button
                       type="button"
                       onClick={() => setEditOpen(false)}
-                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition duration-150"
+                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150"
                     >
                       Cancel
                     </button>
@@ -281,19 +281,19 @@ const MemberDetail = () => {
               {
                 label: "Total Assigned",
                 value: count,
-                color: "bg-indigo-50 text-indigo-800",
+                color: "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200",
                 icon: <BriefcaseIcon className="h-6 w-6 text-indigo-400" />,
               },
               {
                 label: "Open",
                 value: openCount,
-                color: "bg-green-50 text-green-800",
+                color: "bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200",
                 icon: <CheckCircleIcon className="h-6 w-6 text-green-400" />,
               },
               {
                 label: "Overdue",
                 value: overdueCount,
-                color: "bg-red-50 text-red-800",
+                color: "bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200",
                 icon: (
                   <ExclamationTriangleIcon className="h-6 w-6 text-red-400" />
                 ),
@@ -312,9 +312,9 @@ const MemberDetail = () => {
         </div>
 
         {/* RFI list */}
-        <section className="rounded-xl border border-gray-200 bg-white">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
-            <h3 className="text-base font-semibold text-gray-900">
+        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-wrap gap-3">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
               Assigned RFIs
             </h3>
             <div className="flex gap-2">
@@ -325,7 +325,7 @@ const MemberDetail = () => {
                   className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
                     filter === f
                       ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
                   {f}
@@ -335,33 +335,33 @@ const MemberDetail = () => {
           </div>
 
           {rfiLoading ? (
-            <p className="px-5 py-8 text-sm text-gray-500">Loading RFIs…</p>
+            <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400">Loading RFIs…</p>
           ) : filtered.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-gray-500 italic">
+            <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400 italic">
               No {filter !== "all" ? filter + " " : ""}RFIs assigned to this
               member.
             </p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
               {filtered.map((rfi) => {
                 const { label, icon, pill } = statusMeta(rfi);
                 return (
                   <li
                     key={rfi.id}
                     onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
-                    className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 cursor-pointer"
+                    className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                         {rfi.rfi_name}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         {rfi.project_number} · {rfi.project_name} · RFI{" "}
                         {rfi.rfi_number}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-4 shrink-0 text-xs text-gray-500">
+                    <div className="flex items-center gap-4 shrink-0 text-xs text-gray-500 dark:text-gray-400">
                       <span>Due {formatDate(rfi.due_date)}</span>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${pill}`}
@@ -378,19 +378,19 @@ const MemberDetail = () => {
 
           {/* Pagination */}
           {count > 10 && (
-            <div className="flex items-center justify-center gap-4 px-5 py-4 border-t border-gray-100">
+            <div className="flex items-center justify-center gap-4 px-5 py-4 border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 disabled={!prev}
-                className="px-3 py-1 rounded text-sm disabled:text-gray-300 text-indigo-600 hover:underline disabled:no-underline"
+                className="px-3 py-1 rounded text-sm disabled:text-gray-300 dark:disabled:text-gray-600 text-indigo-600 dark:text-indigo-400 hover:underline disabled:no-underline"
               >
                 ← Prev
               </button>
-              <span className="text-sm text-gray-500">Page {page}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Page {page}</span>
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={!next}
-                className="px-3 py-1 rounded text-sm disabled:text-gray-300 text-indigo-600 hover:underline disabled:no-underline"
+                className="px-3 py-1 rounded text-sm disabled:text-gray-300 dark:disabled:text-gray-600 text-indigo-600 dark:text-indigo-400 hover:underline disabled:no-underline"
               >
                 Next →
               </button>

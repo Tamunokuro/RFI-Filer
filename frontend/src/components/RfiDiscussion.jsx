@@ -77,12 +77,12 @@ const RfiDiscussion = ({ rfiId, isClosed, onActivity }) => {
 
   return (
     <section
-      className="border border-gray-200 rounded-xl bg-white"
+      className="border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800"
       aria-label="RFI discussion"
     >
-      <header className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-base font-semibold text-gray-900">Discussion</h3>
-        <p className="text-xs text-gray-500">
+      <header className="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Discussion</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Messages are visible to all project members assigned to this RFI.
         </p>
       </header>
@@ -91,9 +91,9 @@ const RfiDiscussion = ({ rfiId, isClosed, onActivity }) => {
         className="max-h-[480px] overflow-y-auto px-5 py-4 space-y-3"
         data-testid="rfi-discussion-list"
       >
-        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
+        {loadError && <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>}
         {!loadError && comments.length === 0 && (
-          <p className="text-sm text-gray-500 italic">
+          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
             No messages yet. Start the conversation below.
           </p>
         )}
@@ -102,15 +102,15 @@ const RfiDiscussion = ({ rfiId, isClosed, onActivity }) => {
             key={c.id}
             className={`rounded-lg px-4 py-3 ${
               c.is_official_response
-                ? "bg-indigo-50 border border-indigo-200"
-                : "bg-gray-50"
+                ? "bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700"
+                : "bg-gray-50 dark:bg-gray-700"
             }`}
           >
             <div className="flex items-baseline justify-between gap-3">
-              <div className="text-sm font-medium text-gray-900">
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {c.author_name || "Unknown"}
                 {c.author_role && (
-                  <span className="ml-2 text-xs font-normal text-gray-500">
+                  <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
                     {c.author_role}
                   </span>
                 )}
@@ -120,11 +120,11 @@ const RfiDiscussion = ({ rfiId, isClosed, onActivity }) => {
                   </span>
                 )}
               </div>
-              <time className="text-xs text-gray-500">
+              <time className="text-xs text-gray-500 dark:text-gray-400">
                 {formatTimestamp(c.created_at)}
               </time>
             </div>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">
+            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
               {c.body}
             </p>
           </article>
@@ -134,10 +134,10 @@ const RfiDiscussion = ({ rfiId, isClosed, onActivity }) => {
 
       <form
         onSubmit={handleSend}
-        className="border-t border-gray-100 px-5 py-4 space-y-2"
+        className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 space-y-2"
       >
         {isClosed ? (
-          <p className="text-sm text-gray-500 italic">
+          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
             This RFI is closed. New messages cannot be added.
           </p>
         ) : (
@@ -151,14 +151,14 @@ const RfiDiscussion = ({ rfiId, isClosed, onActivity }) => {
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Write a message…"
-              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={posting}
             />
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={posting || !body.trim()}
-                className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:bg-gray-300"
+                className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600"
               >
                 {posting ? "Sending…" : "Send"}
               </button>

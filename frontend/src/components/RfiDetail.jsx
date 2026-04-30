@@ -34,10 +34,10 @@ const RfiDetail = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
         <div className="mx-auto w-full max-w-5xl px-6 py-8">
           <Header title="RFI" />
-          <p className="text-red-500">{error}</p>
+          <p className="text-red-500 dark:text-red-400">{error}</p>
         </div>
         <Footer />
       </div>
@@ -46,10 +46,10 @@ const RfiDetail = () => {
 
   if (!rfi) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
         <div className="mx-auto w-full max-w-5xl px-6 py-8">
           <Header title="RFI" />
-          <p className="text-gray-500">Loading…</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading…</p>
         </div>
         <Footer />
       </div>
@@ -57,20 +57,21 @@ const RfiDetail = () => {
   }
 
   const closed = rfi.status === "closed";
-  const assignees = rfi.assigned_to_detail?.map((m) => m.name).join(", ") || "—";
+  const designers = rfi.designers_detail?.map((m) => m.name).join(", ") || "—";
+  const contractAdmins = rfi.contract_administrators_detail?.map((m) => m.name).join(", ") || "—";
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       <div className="mx-auto w-full max-w-5xl px-6 py-8 space-y-6">
-        <Header title={`RFI ${rfi.rfi_number}`} />
+        <Header title={rfi.rfi_number} />
 
-        <section className="rounded-xl border border-gray-200 bg-white p-6">
+        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {rfi.rfi_name}
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {rfi.project_number} — {rfi.project_name}
               </p>
             </div>
@@ -78,8 +79,8 @@ const RfiDetail = () => {
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
                   closed
-                    ? "bg-gray-200 text-gray-700"
-                    : "bg-green-100 text-green-800"
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    : "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300"
                 }`}
                 data-testid="rfi-status-badge"
               >
@@ -88,7 +89,7 @@ const RfiDetail = () => {
               {!closed && (
                 <button
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}
-                  className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                  className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Edit
                 </button>
@@ -98,37 +99,41 @@ const RfiDetail = () => {
 
           <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-4">
             <div>
-              <dt className="text-gray-500">Trade</dt>
-              <dd className="text-gray-900">{rfi.trade || "—"}</dd>
+              <dt className="text-gray-500 dark:text-gray-400">Trade</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{rfi.trade || "—"}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Received</dt>
-              <dd className="text-gray-900">{formatDate(rfi.received_date)}</dd>
+              <dt className="text-gray-500 dark:text-gray-400">Received</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{formatDate(rfi.received_date)}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Due</dt>
-              <dd className="text-gray-900">{formatDate(rfi.due_date)}</dd>
+              <dt className="text-gray-500 dark:text-gray-400">Due</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{formatDate(rfi.due_date)}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Project Manager</dt>
-              <dd className="text-gray-900">{rfi.project_manager_name || "—"}</dd>
+              <dt className="text-gray-500 dark:text-gray-400">Project Manager</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{rfi.project_manager_name || "—"}</dd>
             </div>
             <div className="md:col-span-2">
-              <dt className="text-gray-500">Assigned To</dt>
-              <dd className="text-gray-900">{assignees}</dd>
+              <dt className="text-gray-500 dark:text-gray-400">Designers</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{designers}</dd>
+            </div>
+            <div className="md:col-span-2">
+              <dt className="text-gray-500 dark:text-gray-400">Contract Administrators</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{contractAdmins}</dd>
             </div>
             {rfi.question && (
               <div className="md:col-span-4">
-                <dt className="text-gray-500">Question</dt>
-                <dd className="whitespace-pre-wrap text-gray-900">
+                <dt className="text-gray-500 dark:text-gray-400">Question</dt>
+                <dd className="whitespace-pre-wrap text-gray-900 dark:text-gray-100">
                   {rfi.question}
                 </dd>
               </div>
             )}
             {rfi.proposed_solution && (
               <div className="md:col-span-4">
-                <dt className="text-gray-500">Proposed Solution</dt>
-                <dd className="whitespace-pre-wrap text-gray-900">
+                <dt className="text-gray-500 dark:text-gray-400">Proposed Solution</dt>
+                <dd className="whitespace-pre-wrap text-gray-900 dark:text-gray-100">
                   {rfi.proposed_solution}
                 </dd>
               </div>

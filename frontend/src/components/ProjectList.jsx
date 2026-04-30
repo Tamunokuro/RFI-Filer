@@ -78,15 +78,15 @@ const ProjectList = () => {
   );
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950">
       <div className="container mx-auto p-4">
         {/* Header with title and chat icon */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-indigo-900">Project List</h1>
+          <h1 className="text-2xl font-bold text-indigo-900 dark:text-indigo-200">Project List</h1>
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate("/")}
-              className="text-gray-600 hover:text-indigo-700"
+              className="text-gray-600 dark:text-gray-400 hover:text-indigo-700 dark:hover:text-indigo-300"
               title="Go to RFI List"
             >
               <ClipboardDocumentListIcon className="w-6 h-6" />
@@ -103,49 +103,49 @@ const ProjectList = () => {
               placeholder="Search using project name, number, or manager..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
 
         {/* Content */}
         {loading ? (
-          <p>Loading projects...</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading projects...</p>
         ) : error ? (
-          <p className="text-red-500">{error}</p>
+          <p className="text-red-500 dark:text-red-400">{error}</p>
         ) : filteredProjects.length > 0 ? (
           <ul className="space-y-4">
             {filteredProjects.map((project) => (
               <li
                 key={project.id}
-                className="border border-gray-200 rounded p-4 bg-white"
+                className="border border-gray-200 dark:border-gray-700 rounded p-4 bg-white dark:bg-gray-800"
               >
                 <div
                   className="flex justify-between items-center cursor-pointer"
                   onClick={() => toggleRFIs(project.id)}
                 >
                   <div>
-                    <h3 className="text-lg font-semibold">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {project.project_number} - {project.project_name}
                     </h3>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Project Manager: {project.project_manager_name}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       RFIs: {project.rfi_count || 0}
                     </p>
                   </div>
                   <div>
                     {openProjectIds[project.id] ? (
-                      <ChevronUpIcon className="w-5 h-5 text-gray-700" />
+                      <ChevronUpIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                     ) : (
-                      <ChevronDownIcon className="w-5 h-5 text-gray-700" />
+                      <ChevronDownIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                     )}
                   </div>
                 </div>
 
                 {openProjectIds[project.id] && (
-                  <div className="mt-3 bg-gray-50 p-3 rounded">
+                  <div className="mt-3 bg-gray-50 dark:bg-gray-900 p-3 rounded">
                     {project.rfis?.length > 0 ? (
                       <ul className="space-y-2">
                         {project.rfis.map((rfi) => (
@@ -153,10 +153,10 @@ const ProjectList = () => {
                             key={rfi.id}
                             className={`p-2 border rounded shadow-sm ${
                               isOverdue(rfi)
-                                ? "bg-red-100 text-red-800 border-red-300"
+                                ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700"
                                 : rfi.status === "closed"
-                                ? "bg-gray-50 text-gray-500 border-gray-200"
-                                : "bg-white text-gray-800 border-gray-200"
+                                ? "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700"
                             }`}
                           >
                             <p className="font-semibold">{rfi.rfi_name}</p>
@@ -164,16 +164,22 @@ const ProjectList = () => {
                               RFI Number: {rfi.rfi_number}
                             </p>
                             <div className="flex items-center gap-2 text-sm mt-0.5">
-                              <span className="text-gray-600 shrink-0">Assigned To:</span>
-                              <AssigneeAvatars members={rfi.assigned_to_detail} size="sm" />
+                              <span className="text-gray-600 dark:text-gray-400 shrink-0">Designers / CAs:</span>
+                              <AssigneeAvatars
+                                members={[
+                                  ...(rfi.designers_detail || []),
+                                  ...(rfi.contract_administrators_detail || []),
+                                ]}
+                                size="sm"
+                              />
                             </div>
                             <p className="text-sm">Due: {rfi.due_date}</p>
                             {rfi.status === "closed" ? (
-                              <p className="text-xs font-medium text-gray-400">
+                              <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
                                 ✓ Closed
                               </p>
                             ) : isOverdue(rfi) ? (
-                              <p className="text-xs font-medium text-red-600">
+                              <p className="text-xs font-medium text-red-600 dark:text-red-400">
                                 ⚠️ Overdue
                               </p>
                             ) : null}
@@ -181,7 +187,7 @@ const ProjectList = () => {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-500 italic">No RFIs found.</p>
+                      <p className="text-gray-500 dark:text-gray-400 italic">No RFIs found.</p>
                     )}
                   </div>
                 )}
@@ -189,7 +195,7 @@ const ProjectList = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500 text-center italic">No Projects Found.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center italic">No Projects Found.</p>
         )}
       </div>
       <Footer />

@@ -183,10 +183,10 @@ const RfiList = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
         <div className="mx-auto w-full max-w-7xl px-6 py-8">
           <Header title="RFI List" />
-          <p className="text-center text-gray-500 py-8">Loading RFIs...</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 py-8">Loading RFIs...</p>
         </div>
         <Footer />
       </div>
@@ -194,12 +194,12 @@ const RfiList = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <Header title="RFI List" />
 
         {error && (
-          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/30 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
             {error}
           </div>
         )}
@@ -216,7 +216,7 @@ const RfiList = () => {
                 setSearchTerm(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -237,7 +237,7 @@ const RfiList = () => {
         {/* Table */}
         <div className={`py-3 w-full overflow-x-auto lg:overflow-visible transition-opacity duration-150 ${fetching ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 {[
                   "Project Number",
@@ -248,13 +248,14 @@ const RfiList = () => {
                   "Trade",
                   "Received",
                   "Due Date",
-                  "Assigned To",
+                  "Designers",
+                  "Contract Administrators",
                   "Status",
                   "Actions",
                 ].map((heading, index) => (
                   <th
                     key={index}
-                    className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                    className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
                     {heading}
                   </th>
@@ -262,47 +263,51 @@ const RfiList = () => {
               </tr>
             </thead>
 
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
               {rfis.map((rfi) => (
                 <tr
                   key={rfi.id}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
                 >
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                     {rfi.project_number}
                   </td>
 
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                     {rfi.rfi_number}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {renderMessageIndicator(rfi.id)}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {rfi.rfi_name}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {rfi.project_name}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {rfi.trade}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(rfi.received_date)}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(rfi.due_date)}
                   </td>
 
                   <td className="px-6 py-4">
-                    <AssigneeAvatars members={rfi.assigned_to_detail} />
+                    <AssigneeAvatars members={rfi.designers_detail || []} />
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <AssigneeAvatars members={rfi.contract_administrators_detail || []} />
                   </td>
 
                   <td className="px-6 py-4">{renderStatus(rfi)}</td>
@@ -332,7 +337,7 @@ const RfiList = () => {
 
         {/* Empty state */}
         {rfis.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             No RFIs found matching your search criteria.
           </div>
         )}
@@ -346,19 +351,19 @@ const RfiList = () => {
               className={`flex items-center gap-1 px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-150 ${
                 prev && !fetching
                   ? "bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 text-white shadow-md"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
               }`}
             >
               <ChevronLeftIcon className="h-4 w-4" />
               Prev
             </button>
 
-            <span className="text-sm font-medium text-gray-600">
-              Page <span className="font-bold text-gray-800">{page}</span> of{" "}
-              <span className="font-bold text-gray-800">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Page <span className="font-bold text-gray-800 dark:text-gray-200">{page}</span> of{" "}
+              <span className="font-bold text-gray-800 dark:text-gray-200">
                 {Math.ceil(count / pageSize)}
               </span>
-              <span className="ml-2 text-gray-400">({count} results)</span>
+              <span className="ml-2 text-gray-400 dark:text-gray-500">({count} results)</span>
             </span>
 
             <button
@@ -367,7 +372,7 @@ const RfiList = () => {
               className={`flex items-center gap-1 px-4 py-1.5 rounded-lg text-sm font-semibold transition duration-150 ${
                 next && !fetching
                   ? "bg-gradient-to-r from-blue-800 to-indigo-900 hover:from-blue-900 hover:to-indigo-950 text-white shadow-md"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
               }`}
             >
               Next

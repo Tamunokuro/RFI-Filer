@@ -28,7 +28,8 @@ const rfiActive = {
   trade: "M",
   received_date: "2026-04-10",
   due_date: "2099-01-01",
-  assigned_to_detail: [],
+  designers_detail: [],
+  contract_administrators_detail: [],
   status: "open",
 };
 
@@ -42,7 +43,8 @@ const rfiOverdue = {
   trade: "E",
   received_date: "2025-01-01",
   due_date: "2025-01-15", // in the past
-  assigned_to_detail: [],
+  designers_detail: [],
+  contract_administrators_detail: [],
   status: "open",
 };
 

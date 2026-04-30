@@ -53,19 +53,19 @@ const AttachmentCard = ({ att, canDelete, onDelete }) => {
     );
   } else if (kind === "pdf") {
     preview = (
-      <div className="flex h-36 items-center justify-center rounded-md border border-gray-200 bg-red-50 text-red-800 text-3xl font-bold">
+      <div className="flex h-36 items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-3xl font-bold">
         PDF
       </div>
     );
   } else if (kind === "excel") {
     preview = (
-      <div className="flex h-36 items-center justify-center rounded-md border border-gray-200 bg-green-50 text-green-800 text-2xl font-bold">
+      <div className="flex h-36 items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-2xl font-bold">
         XLS
       </div>
     );
   } else {
     preview = (
-      <div className="flex h-36 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-gray-600 text-2xl font-bold">
+      <div className="flex h-36 items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-2xl font-bold">
         FILE
       </div>
     );
@@ -73,28 +73,28 @@ const AttachmentCard = ({ att, canDelete, onDelete }) => {
 
   return (
     <div
-      className="rounded-lg border border-gray-200 bg-white p-3 flex flex-col gap-2"
+      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 flex flex-col gap-2"
       data-testid={`attachment-${att.id}`}
       data-kind={kind}
     >
       {preview}
       <div
-        className="text-sm text-gray-900 font-medium truncate"
+        className="text-sm text-gray-900 dark:text-gray-100 font-medium truncate"
         title={att.original_filename}
       >
         {att.original_filename}
       </div>
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-gray-500 dark:text-gray-400">
         {formatSize(att.size)}
         {att.uploaded_by_name && <> · {att.uploaded_by_name}</>}
       </div>
-      <div className="flex items-center justify-end gap-4 pt-1 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-4 pt-1 border-t border-gray-100 dark:border-gray-700">
         <a
           href={att.file_url}
           target="_blank"
           rel="noreferrer"
           title="Open"
-          className="text-indigo-600 hover:text-indigo-800 transition-colors"
+          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
         >
           <ArrowTopRightOnSquareIcon className="h-5 w-5" />
         </a>
@@ -102,7 +102,7 @@ const AttachmentCard = ({ att, canDelete, onDelete }) => {
           href={att.file_url}
           download={att.original_filename}
           title="Download"
-          className="text-gray-500 hover:text-gray-800 transition-colors"
+          className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowDownTrayIcon className="h-5 w-5" />
         </a>
@@ -185,11 +185,11 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
 
   return (
     <section
-      className="rounded-xl border border-gray-200 bg-white p-5"
+      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5"
       aria-label="RFI attachments"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-900">Attachments</h3>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Attachments</h3>
         {!isClosed && (
           <>
             <input
@@ -205,7 +205,7 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:bg-gray-300"
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600"
             >
               {uploading ? "Uploading…" : "Add Files"}
             </button>
@@ -214,9 +214,9 @@ const RfiAttachments = ({ rfiId, currentMemberId, isClosed }) => {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
       ) : attachments.length === 0 ? (
-        <p className="text-sm text-gray-500 italic">
+        <p className="text-sm text-gray-500 dark:text-gray-400 italic">
           No attachments uploaded yet.
         </p>
       ) : (

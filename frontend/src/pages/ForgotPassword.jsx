@@ -7,6 +7,7 @@ import {
 } from "@heroicons/react/20/solid";
 import toast from "../toast";
 import api from "../api";
+import "../styles/Forms.css";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -35,8 +36,9 @@ const ForgotPassword = () => {
   };
 
   return (
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
     <div className="form-wrapper mt-10 max-w-md mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center text-blue-950 mb-6">
+      <h1 className="text-3xl font-bold text-center text-blue-950 dark:text-indigo-200 mb-6">
         Forgot Password
       </h1>
 
@@ -45,15 +47,15 @@ const ForgotPassword = () => {
       <div className="form-decoration decoration-2"></div>
 
       <div className="form-container">
-        <p className="text-sm text-gray-600 text-center mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
           Enter the email linked to your account and we’ll send you a password
           reset link.
         </p>
 
         {info && (
           <div className="flex justify-center mb-4">
-            <p className="text-sm text-green-700 flex items-center gap-2 text-center">
-              <CheckCircleIcon className="h-5 w-5 text-green-600" />
+            <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2 text-center">
+              <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
               {info}
             </p>
           </div>
@@ -61,8 +63,8 @@ const ForgotPassword = () => {
 
         {error && (
           <div className="flex justify-center mb-4">
-            <p className="text-sm text-red-600 flex items-center gap-2 text-center">
-              <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
+            <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2 text-center">
+              <ExclamationCircleIcon className="h-5 w-5 text-red-500 dark:text-red-400" />
               {error}
             </p>
           </div>
@@ -72,14 +74,14 @@ const ForgotPassword = () => {
           <div className="sm:col-span-4">
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-900"
+              className="block text-sm font-medium text-gray-900 dark:text-gray-100"
             >
               Email address
             </label>
 
             <div className="mt-2">
-              <div className="flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                <EnvelopeIcon className="h-5 w-5 text-gray-400 mr-2" />
+              <div className="flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                <EnvelopeIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                 <input
                   type="email"
                   id="email"
@@ -89,7 +91,7 @@ const ForgotPassword = () => {
                     setInfo("");
                     setEmail(e.target.value);
                   }}
-                  className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                  className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                   placeholder="you@example.com"
                   required
                 />
@@ -115,7 +117,7 @@ const ForgotPassword = () => {
           <div className="mt-5 text-center">
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 text-sm text-blue-700 hover:underline"
+              className="inline-flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400 hover:underline"
             >
               <ArrowLeftIcon className="h-4 w-4" />
               Back to login
@@ -123,6 +125,7 @@ const ForgotPassword = () => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   );
 };

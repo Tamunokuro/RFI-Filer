@@ -7,8 +7,14 @@
   margin: 50px auto;
   padding: 20px;
   border-radius: 8px;
+  background-color: #ffffff;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   max-width: 400px;
+}
+
+.dark .form-container {
+  background-color: rgb(31, 41, 55); /* gray-800 */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
 }
 
 .form-input {

@@ -195,12 +195,13 @@ const Form = ({ route, method }) => {
   };
 
   return (
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
     <div
       className={`form-wrapper mt-10 mx-auto p-6 ${
         isLogin ? "max-w-md" : "max-w-2xl"
       }`}
     >
-      <h1 className="text-3xl font-bold text-center text-blue-950 mb-6">
+      <h1 className="text-3xl font-bold text-center text-blue-950 dark:text-indigo-200 mb-6">
         {title}
       </h1>
 
@@ -211,8 +212,8 @@ const Form = ({ route, method }) => {
       <div className="form-container">
         {error && (
           <div className="flex justify-center mb-4">
-            <p className="text-sm text-red-600 flex items-center gap-2 text-center">
-              <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
+            <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2 text-center">
+              <ExclamationCircleIcon className="h-5 w-5 text-red-500 dark:text-red-400" />
               {error}
             </p>
           </div>
@@ -230,19 +231,19 @@ const Form = ({ route, method }) => {
             <div className={isLogin ? "" : ""}>
               <label
                 htmlFor="username"
-                className="block text-sm font-medium text-gray-900"
+                className="block text-sm font-medium text-gray-900 dark:text-gray-100"
               >
                 Username
               </label>
-              <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                <UserIcon className="h-5 w-5 text-gray-400 mr-2" />
+              <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                <UserIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                 <input
                   type="text"
                   id="username"
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                  className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                   placeholder="janesmith"
                   required
                 />
@@ -254,19 +255,19 @@ const Form = ({ route, method }) => {
                 <div>
                   <label
                     htmlFor="name"
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     Full name
                   </label>
-                  <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                    <UserIcon className="h-5 w-5 text-gray-400 mr-2" />
+                  <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                    <UserIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                     <input
                       type="text"
                       id="name"
                       name="name"
                       value={formData.name}
                       onChange={handleChange}
-                      className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                      className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                       placeholder="Jane Smith"
                       required
                     />
@@ -276,19 +277,19 @@ const Form = ({ route, method }) => {
                 <div>
                   <label
                     htmlFor="email"
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     Email
                   </label>
-                  <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                    <EnvelopeIcon className="h-5 w-5 text-gray-400 mr-2" />
+                  <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                    <EnvelopeIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                     <input
                       type="email"
                       id="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                      className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                       placeholder="you@example.com"
                       required
                     />
@@ -298,19 +299,19 @@ const Form = ({ route, method }) => {
                 <div>
                   <label
                     htmlFor="company"
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     Company
                   </label>
-                  <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                    <BuildingOffice2Icon className="h-5 w-5 text-gray-400 mr-2" />
+                  <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                    <BuildingOffice2Icon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                     <input
                       type="text"
                       id="company"
                       name="company"
                       value={formData.company}
                       onChange={handleChange}
-                      className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                      className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                       placeholder="Your company"
                     />
                   </div>
@@ -319,18 +320,18 @@ const Form = ({ route, method }) => {
                 <div>
                   <label
                     htmlFor="role"
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     Role
                   </label>
-                  <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                    <BriefcaseIcon className="h-5 w-5 text-gray-400 mr-2" />
+                  <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                    <BriefcaseIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                     <select
                       id="role"
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
-                      className="block w-full py-2 text-base text-gray-900 bg-transparent focus:outline-none"
+                      className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 bg-transparent focus:outline-none"
                       required
                     >
                       <option value="">Select role</option>
@@ -346,18 +347,18 @@ const Form = ({ route, method }) => {
                 <div>
                   <label
                     htmlFor="discipline"
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     Discipline
                   </label>
-                  <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                    <WrenchScrewdriverIcon className="h-5 w-5 text-gray-400 mr-2" />
+                  <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                    <WrenchScrewdriverIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                     <select
                       id="discipline"
                       name="discipline"
                       value={formData.discipline}
                       onChange={handleChange}
-                      className="block w-full py-2 text-base text-gray-900 bg-transparent focus:outline-none"
+                      className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 bg-transparent focus:outline-none"
                     >
                       <option value="">Select discipline</option>
                       {disciplineOptions
@@ -374,19 +375,19 @@ const Form = ({ route, method }) => {
                 <div>
                   <label
                     htmlFor="phone"
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                   >
                     Phone
                   </label>
-                  <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                    <PhoneIcon className="h-5 w-5 text-gray-400 mr-2" />
+                  <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                    <PhoneIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2" />
                     <input
                       type="text"
                       id="phone"
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                      className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                       placeholder="431-000-0000"
                     />
                   </div>
@@ -397,19 +398,19 @@ const Form = ({ route, method }) => {
             <div className={!isLogin ? "" : ""}>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-900"
+                className="block text-sm font-medium text-gray-900 dark:text-gray-100"
               >
                 Password
               </label>
-              <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                <LockClosedIcon className="h-5 w-5 text-gray-400 mr-2 shrink-0" />
+              <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                <LockClosedIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                  className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                   placeholder="Enter password"
                   required
                 />
@@ -432,26 +433,26 @@ const Form = ({ route, method }) => {
               <div className="md:col-span-2">
                 <label
                   htmlFor="confirm_password"
-                  className="block text-sm font-medium text-gray-900"
+                  className="block text-sm font-medium text-gray-900 dark:text-gray-100"
                 >
                   Confirm password
                 </label>
-                <div className="mt-2 flex items-center rounded-md bg-white px-3 outline outline-1 outline-gray-300 focus-within:outline-2 focus-within:outline-indigo-600">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400 mr-2 shrink-0" />
+                <div className="mt-2 flex items-center rounded-md bg-white dark:bg-gray-700 px-3 outline outline-1 outline-gray-300 dark:outline-gray-600 focus-within:outline-2 focus-within:outline-indigo-500">
+                  <LockClosedIcon className="h-5 w-5 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     id="confirm_password"
                     name="confirm_password"
                     value={formData.confirm_password}
                     onChange={handleChange}
-                    className="block w-full py-2 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+                    className="block w-full py-2 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
                     placeholder="Re-enter password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((v) => !v)}
-                    className="ml-2 shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    className="ml-2 shrink-0 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
                     aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   >
                     {showConfirmPassword ? (
@@ -482,13 +483,13 @@ const Form = ({ route, method }) => {
             {!loading && <ArrowRightIcon className="w-6 h-6" />}
           </button>
 
-          <div className="mt-4 text-sm text-center">
+          <div className="mt-4 text-sm text-center text-gray-700 dark:text-gray-300">
             {isLogin ? (
               <>
                 <p>
                   <Link
                     to="/forgot-password"
-                    className="text-blue-700 hover:underline"
+                    className="text-blue-700 dark:text-blue-400 hover:underline"
                   >
                     Forgot password?
                   </Link>
@@ -497,7 +498,7 @@ const Form = ({ route, method }) => {
                   Don&apos;t have an account?{" "}
                   <Link
                     to="/register"
-                    className="text-blue-700 hover:underline"
+                    className="text-blue-700 dark:text-blue-400 hover:underline"
                   >
                     Register
                   </Link>
@@ -506,7 +507,7 @@ const Form = ({ route, method }) => {
             ) : (
               <p>
                 Already have an account?{" "}
-                <Link to="/login" className="text-blue-700 hover:underline">
+                <Link to="/login" className="text-blue-700 dark:text-blue-400 hover:underline">
                   Login
                 </Link>
               </p>
@@ -514,6 +515,7 @@ const Form = ({ route, method }) => {
           </div>
         </form>
       </div>
+    </div>
     </div>
   );
 };
