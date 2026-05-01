@@ -147,6 +147,24 @@ const UpdateRfiForm = () => {
             />
           </div>
 
+          {/* Trade / Discipline */}
+          <div>
+            <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">Trade / Discipline</label>
+            <select
+              name="trade"
+              value={formData.trade}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">— Select trade —</option>
+              <option value="M">Mechanical</option>
+              <option value="E">Electrical</option>
+              <option value="C">Civil</option>
+              <option value="S">Structural</option>
+              <option value="P">Architectural</option>
+            </select>
+          </div>
+
           {/* RFI Number — locked */}
           <div>
             <label className="block font-medium text-gray-700 dark:text-gray-300 text-sm">RFI Number</label>

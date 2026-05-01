@@ -1,8 +1,10 @@
+import { useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
+  useNavigate,
 } from "react-router-dom";
 import CreateRfiForm from "./components/CreateRfiForm";
 import Login from "./components/Login";
@@ -15,9 +17,14 @@ import ProjectList from "./components/ProjectList";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import MemberDetail from "./pages/MemberDetail";
+import EmailInbox from "./pages/EmailInbox";
 
 import Toaster from "./components/Toaster";
+import SessionWarningModal from "./components/SessionWarningModal";
+import SplashScreen from "./components/SplashScreen";
 import { ThemeProvider } from "./context/Theme";
+import { useAuth } from "./context/Auth";
+import { useIdleLogout } from "./hooks/useIdleLogout";
 
 import { ACCESS_TOKEN } from "./constants";
 
@@ -26,11 +33,27 @@ const PrivateRoute = ({ children }) => {
   return token ? children : <Navigate to="/login" />;
 };
 
-function App() {
+/**
+ * AppShell
+ * --------
+ * Mounted inside <Router> so that useNavigate (used by useIdleLogout) is
+ * available. Owns the idle-logout timer and the session-warning modal.
+ */
+function AppShell() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const { showWarning, extendSession } = useIdleLogout();
+
   return (
-    <ThemeProvider>
-    <Router>
+    <>
       <Toaster />
+
+      {/* Session-expiry warning — appears 5 min before the 30-min cutoff */}
+      <SessionWarningModal
+        open={showWarning}
+        onContinue={extendSession}
+        onLogout={() => logout(navigate)}
+      />
 
       <Routes>
         <Route
@@ -78,8 +101,34 @@ function App() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/email-inbox"
+          element={
+            <PrivateRoute>
+              <EmailInbox />
+            </PrivateRoute>
+          }
+        />
       </Routes>
-    </Router>
+    </>
+  );
+}
+
+function App() {
+  // showSplash resets to true on every cold page load.
+  // Navigating within the SPA does NOT re-mount App, so the splash
+  // only appears once per page load — exactly like Teams / native apps.
+  const [showSplash, setShowSplash] = useState(true);
+
+  return (
+    <ThemeProvider>
+      {/* Splash lives outside <Router> so it has no routing overhead,
+          but inside <ThemeProvider> so dark mode applies correctly. */}
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+
+      <Router>
+        <AppShell />
+      </Router>
     </ThemeProvider>
   );
 }
