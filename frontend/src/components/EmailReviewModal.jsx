@@ -201,8 +201,35 @@ export default function EmailReviewModal({ emailId, onClose }) {
   const handleRetry = async () => {
     setSubmitting(true);
     try {
-      const res = await api.post(`/api/email/inbound/${emailId}/retry/`);
-      toast.success(`Re-matched — confidence: ${Math.round(res.data.confidence * 100)}%`);
+      // Send the current form values as hints so the matcher uses
+      // whatever the reviewer has typed rather than the raw email text.
+      const res = await api.post(`/api/email/inbound/${emailId}/retry/`, {
+        subject_hint: form.rfi_name.trim(),
+        body_hint:    form.question.trim(),
+      });
+
+      const { confidence, project_id, project_name, diagnostics } = res.data;
+      const pct = Math.round(confidence * 100);
+      const nums = diagnostics?.extracted_numbers ?? [];
+      const total = diagnostics?.total_projects_in_db ?? 0;
+
+      if (project_name) {
+        toast.success(`Matched "${project_name}" — ${pct}% confidence`);
+        setForm((f) => ({ ...f, project_id: project_id ?? f.project_id }));
+      } else if (nums.length > 0) {
+        // Regex found a number but no project matched it
+        toast.error(
+          `Found number${nums.length > 1 ? "s" : ""} "${nums.join(", ")}" in the text but no project in the database matches. Check your project numbers.`
+        );
+      } else if (total === 0) {
+        toast.error("No projects exist in the database yet. Create a project first.");
+      } else {
+        toast.error(
+          `No project number detected. Try including your exact project number in the RFI Name field (e.g. "RFI – PRJ-001 – Description").`
+        );
+      }
+
+      // Refresh email detail so match reason + confidence badge update
       fetchData();
     } catch {
       toast.error("Retry failed.");
@@ -463,95 +490,101 @@ export default function EmailReviewModal({ emailId, onClose }) {
                 </div>
               )}
 
-              {/* ── Reject inline form ── */}
-              {isReviewable && showRejectForm && (
-                <div className="rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/10 px-4 py-4">
-                  <label className="block text-sm font-medium text-red-700 dark:text-red-400 mb-2">
-                    Reason for rejection (optional)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    className="block w-full rounded-md border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-400 resize-y"
-                    placeholder="e.g. Duplicate, not RFI-related, wrong inbox…"
-                  />
-                  <div className="mt-3 flex gap-2 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowRejectForm(false)}
-                      className="px-3 py-1.5 rounded-md text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleReject}
-                      disabled={submitting}
-                      className="px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-60 transition-colors"
-                    >
-                      {submitting ? "Rejecting…" : "Confirm Reject"}
-                    </button>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
 
-        {/* ── Footer actions ── */}
+        {/* ── Footer ── */}
         {!loading && !error && email && (
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between gap-3 flex-wrap">
+          <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
 
-            {/* Left — secondary actions */}
-            <div className="flex gap-2">
-              {isReviewable && (
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  disabled={submitting}
-                  title="Re-run project matching"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-                >
-                  <ArrowPathIcon className={`h-4 w-4 ${submitting ? "animate-spin" : ""}`} />
-                  Retry match
-                </button>
-              )}
-              {isReviewable && !showRejectForm && (
-                <button
-                  type="button"
-                  onClick={() => setShowRejectForm(true)}
-                  disabled={submitting}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 dark:border-red-700 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
-                >
-                  <XCircleIcon className="h-4 w-4" />
-                  Reject
-                </button>
-              )}
-            </div>
+            {/* Reject form — replaces normal buttons when active */}
+            {isReviewable && showRejectForm ? (
+              <div className="px-6 py-4 space-y-3">
+                <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                  Reason for rejection <span className="font-normal text-gray-400">(optional)</span>
+                </p>
+                <textarea
+                  autoFocus
+                  rows={2}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className="block w-full rounded-md border border-red-300 dark:border-red-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                  placeholder="e.g. Duplicate, not RFI-related, wrong inbox…"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setShowRejectForm(false); setRejectReason(""); }}
+                    className="px-3 py-1.5 rounded-md text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
+                  >
+                    <XCircleIcon className="h-4 w-4" />
+                    {submitting ? "Rejecting…" : "Confirm Reject"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Normal action buttons */
+              <div className="px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
 
-            {/* Right — primary action */}
-            <div className="flex gap-2 ml-auto">
-              <button
-                type="button"
-                onClick={() => onClose(false)}
-                className="px-4 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                {isReviewable ? "Cancel" : "Close"}
-              </button>
+                {/* Left — secondary actions */}
+                <div className="flex gap-2">
+                  {isReviewable && (
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      disabled={submitting}
+                      title="Re-run project matching"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                    >
+                      <ArrowPathIcon className={`h-4 w-4 ${submitting ? "animate-spin" : ""}`} />
+                      Retry match
+                    </button>
+                  )}
+                  {isReviewable && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectForm(true)}
+                      disabled={submitting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-300 dark:border-red-700 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircleIcon className="h-4 w-4" />
+                      Reject
+                    </button>
+                  )}
+                </div>
 
-              {isReviewable && (
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  disabled={submitting || !form.project_id}
-                  className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
-                >
-                  <CheckCircleIcon className="h-4 w-4" />
-                  {submitting ? "Creating RFI…" : "Approve & Create RFI"}
-                </button>
-              )}
-            </div>
+                {/* Right — primary action */}
+                <div className="flex gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => onClose(false)}
+                    className="px-4 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {isReviewable ? "Cancel" : "Close"}
+                  </button>
+                  {isReviewable && (
+                    <button
+                      type="button"
+                      onClick={handleApprove}
+                      disabled={submitting || !form.project_id}
+                      className="inline-flex items-center gap-1.5 px-5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+                    >
+                      <CheckCircleIcon className="h-4 w-4" />
+                      {submitting ? "Creating RFI…" : "Approve & Create RFI"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
