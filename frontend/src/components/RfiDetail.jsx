@@ -6,18 +6,37 @@ import Header from "./Header";
 import RfiDiscussion from "./RfiDiscussion";
 import OfficialResponsePanel from "./OfficialResponsePanel";
 import RfiAttachments from "./RfiAttachments";
-import { useAuth } from "../context/Auth";
+import RfiRevisionHistory from "./RfiRevisionHistory";
+import { useAuth, canEditRfi } from "../context/Auth";
 import toast from "../toast";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
 
+// ── Status display config ──────────────────────────────────────────────────────
+const STATUS_META = {
+  open:         { label: "Open",         cls: "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300" },
+  submitted:    { label: "Submitted",    cls: "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300" },
+  under_review: { label: "Under Review", cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300" },
+  responded:    { label: "Responded",    cls: "bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300" },
+  closed:       { label: "Closed",       cls: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300" },
+};
+
+// The "natural next step" button for each status that has a UI-driven transition.
+// under_review → responded is handled by OfficialResponsePanel, not a button here.
+const NEXT_STEP = {
+  open:      { target: "submitted",    label: "Submit for Review" },
+  submitted: { target: "under_review", label: "Mark Under Review" },
+  responded: { target: "closed",       label: "Close RFI" },
+};
+
 const RfiDetail = () => {
   const { pk } = useParams();
   const navigate = useNavigate();
-  const { memberId } = useAuth();
+  const { memberId, role } = useAuth();
   const [rfi, setRfi] = useState(null);
   const [error, setError] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
 
   const loadRfi = async () => {
     try {
@@ -59,6 +78,9 @@ const RfiDetail = () => {
   }
 
   const closed = rfi.status === "closed";
+  const editAllowed = canEditRfi(role, rfi.status);
+  const statusMeta = STATUS_META[rfi.status] ?? { label: rfi.status, cls: "" };
+  const nextStep = NEXT_STEP[rfi.status] ?? null;
   const designers = rfi.designers_detail?.map((m) => m.name).join(", ") || "—";
   const contractAdmins = rfi.contract_administrators_detail?.map((m) => m.name).join(", ") || "—";
 
@@ -88,6 +110,19 @@ const RfiDetail = () => {
     }
   };
 
+  const handleTransition = async (newStatus) => {
+    setTransitioning(true);
+    try {
+      await api.post(`/api/rfis/${rfi.id}/transition/`, { status: newStatus });
+      await loadRfi();
+      toast.success(`Status updated to "${STATUS_META[newStatus]?.label ?? newStatus}".`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to update status.");
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       <div className="mx-auto w-full max-w-5xl px-6 py-8 space-y-6">
@@ -103,17 +138,29 @@ const RfiDetail = () => {
                 {rfi.project_number} — {rfi.project_name}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Status badge */}
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                  closed
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    : "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300"
-                }`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.cls}`}
                 data-testid="rfi-status-badge"
               >
-                {closed ? "Closed" : "Open"}
+                {statusMeta.label}
               </span>
+
+              {/* Workflow transition button — shown when a natural next step exists */}
+              {nextStep && (
+                <button
+                  onClick={() => handleTransition(nextStep.target)}
+                  disabled={transitioning}
+                  data-testid="rfi-transition-btn"
+                  className="inline-flex items-center gap-1 rounded-md border border-indigo-300 dark:border-indigo-600
+                             px-3 py-1 text-sm font-medium text-indigo-700 dark:text-indigo-300
+                             hover:bg-indigo-50 dark:hover:bg-indigo-900/30
+                             disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  {transitioning ? "Updating…" : `${nextStep.label} →`}
+                </button>
+              )}
 
               {/* PDF export */}
               <button
@@ -149,12 +196,13 @@ const RfiDetail = () => {
                 )}
               </button>
 
-              {!closed && (
+              {/* Edit — visible only when role + status allow it */}
+              {editAllowed && (
                 <button
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}
                   className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  Edit
+                  {rfi.status === "under_review" ? "Revise →" : "Edit"}
                 </button>
               )}
             </div>
@@ -204,13 +252,16 @@ const RfiDetail = () => {
           </dl>
         </section>
 
+        {/* Revision history — only visible when revisions exist */}
+        <RfiRevisionHistory rfiId={rfi.id} />
+
         <RfiAttachments
           rfiId={rfi.id}
           currentMemberId={memberId}
           isClosed={closed}
         />
 
-        <OfficialResponsePanel rfi={rfi} onClosed={(updated) => setRfi(updated)} />
+        <OfficialResponsePanel rfi={rfi} onUpdated={(updated) => setRfi(updated)} />
 
         <RfiDiscussion rfiId={rfi.id} isClosed={closed} onActivity={() => {}} />
       </div>

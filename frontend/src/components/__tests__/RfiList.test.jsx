@@ -84,22 +84,27 @@ describe("RfiList", () => {
 
   // ── API params ────────────────────────────────────────────────────────────
 
-  it("sends status=open so closed RFIs are excluded server-side", async () => {
+  it("requests all active statuses so closed RFIs are excluded server-side", async () => {
     mockApis();
     renderList();
     await screen.findByTestId("rfi-status-1");
 
     const rfiCall = api.get.mock.calls.find(([url]) => url === "/api/rfis/");
     expect(rfiCall).toBeDefined();
-    expect(rfiCall[1].params).toMatchObject({ status: "open" });
+    // Should include all non-closed statuses as a comma-separated string
+    expect(rfiCall[1].params.status).toMatch(/open/);
+    expect(rfiCall[1].params.status).toMatch(/submitted/);
+    expect(rfiCall[1].params.status).toMatch(/under_review/);
+    expect(rfiCall[1].params.status).toMatch(/responded/);
+    expect(rfiCall[1].params.status).not.toMatch(/closed/);
   });
 
   // ── Status badges ─────────────────────────────────────────────────────────
 
-  it("shows Active for an open RFI with a future due date", async () => {
+  it("shows Open for an open RFI with a future due date", async () => {
     mockApis([rfiActive]);
     renderList();
-    expect(await screen.findByTestId("rfi-status-1")).toHaveTextContent("Active");
+    expect(await screen.findByTestId("rfi-status-1")).toHaveTextContent("Open");
   });
 
   it("shows Overdue for an open RFI with a past due date", async () => {
@@ -108,14 +113,14 @@ describe("RfiList", () => {
     expect(await screen.findByTestId("rfi-status-3")).toHaveTextContent("Overdue");
   });
 
-  it("does not render a Closed row even if the API unexpectedly returns one", async () => {
-    const closedRfi = { ...rfiActive, id: 99, status: "closed", rfi_name: "Should be gone" };
+  it("renders a Closed badge for a closed RFI returned by the API", async () => {
+    // The component trusts the server to filter out closed RFIs via the
+    // status query param; if one slips through it renders with a "Closed" badge.
+    const closedRfi = { ...rfiActive, id: 99, status: "closed", rfi_name: "Unexpected closed" };
     mockApis([rfiActive, closedRfi]);
     renderList();
     await screen.findByTestId("rfi-status-1");
-    // The closed row is still rendered (component trusts the server filtered it),
-    // but no "Closed" badge text should appear in the status cells.
-    expect(screen.queryByText("Closed")).toBeNull();
+    expect(screen.getByTestId("rfi-status-99")).toHaveTextContent("Closed");
   });
 
   // ── Unread badge ──────────────────────────────────────────────────────────

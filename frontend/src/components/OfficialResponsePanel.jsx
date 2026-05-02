@@ -1,12 +1,18 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api";
 import toast from "../toast";
-import { canSubmitOfficialResponse, useAuth } from "../context/Auth";
+import {
+  canSubmitOfficialResponse,
+  canReviseOfficialResponse,
+  useAuth,
+} from "../context/Auth";
 import {
   PaperClipIcon,
   XMarkIcon,
   ArrowTopRightOnSquareIcon,
   ArrowDownTrayIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/20/solid";
 
 const ACCEPTED =
@@ -21,7 +27,13 @@ const formatSize = (bytes) => {
   return `${(kb / 1024).toFixed(1)} MB`;
 };
 
-/** Compact read-only attachment row used in the closed panel. */
+const formatDateTime = (iso) =>
+  new Date(iso).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+// ── Compact read-only attachment row ─────────────────────────────────────────
 const AttachmentRow = ({ att }) => (
   <div className="flex items-center justify-between gap-3 rounded-md border border-indigo-100 dark:border-indigo-700 bg-white dark:bg-gray-700 px-3 py-2 text-sm">
     <span
@@ -31,7 +43,9 @@ const AttachmentRow = ({ att }) => (
       {att.original_filename}
     </span>
     <div className="flex items-center gap-3 shrink-0">
-      <span className="text-xs text-indigo-500 dark:text-indigo-400">{formatSize(att.size)}</span>
+      <span className="text-xs text-indigo-500 dark:text-indigo-400">
+        {formatSize(att.size)}
+      </span>
       <a
         href={att.file_url}
         target="_blank"
@@ -53,12 +67,78 @@ const AttachmentRow = ({ att }) => (
   </div>
 );
 
-const OfficialResponsePanel = ({ rfi, onClosed }) => {
-  const { role } = useAuth();
-  const allowed = canSubmitOfficialResponse(role);
+// ── Single response-history card (collapsed by default for older entries) ─────
+const ResponseHistoryCard = ({ revision, isLatest }) => {
+  const [open, setOpen] = useState(isLatest);
 
+  return (
+    <div
+      className={`rounded-md border ${
+        isLatest
+          ? "border-indigo-300 dark:border-indigo-600"
+          : "border-gray-200 dark:border-gray-700"
+      } bg-white dark:bg-gray-800`}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-left"
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          {isLatest ? (
+            <span className="rounded-full bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+              Latest
+            </span>
+          ) : (
+            <span className="rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+              Response #{revision.response_number}
+            </span>
+          )}
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            {revision.responded_by_name || "a project member"}
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            · {formatDateTime(revision.responded_at)}
+          </span>
+          {revision.attachments?.length > 0 && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              · {revision.attachments.length} attachment
+              {revision.attachments.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        {open ? (
+          <ChevronDownIcon className="h-4 w-4 text-gray-400 shrink-0" />
+        ) : (
+          <ChevronRightIcon className="h-4 w-4 text-gray-400 shrink-0" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 space-y-3">
+          <p className="whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100">
+            {revision.body}
+          </p>
+          {revision.attachments?.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                Attachments ({revision.attachments.length})
+              </p>
+              {revision.attachments.map((att) => (
+                <AttachmentRow key={att.id} att={att} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Submission form (shared by initial submit and revised submit) ─────────────
+const ResponseForm = ({ rfiId, isRevision, onSuccess }) => {
   const [body, setBody] = useState("");
-  const [files, setFiles] = useState([]); // staged File objects
+  const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const fileInputRef = useRef(null);
@@ -69,7 +149,6 @@ const OfficialResponsePanel = ({ rfi, onClosed }) => {
       const existing = new Set(prev.map((f) => f.name + f.size));
       return [...prev, ...picked.filter((f) => !existing.has(f.name + f.size))];
     });
-    // Reset input so the same file can be re-selected if removed and re-added
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -82,25 +161,21 @@ const OfficialResponsePanel = ({ rfi, onClosed }) => {
       const fd = new FormData();
       fd.append("body", body.trim());
       files.forEach((f) => fd.append("files", f));
-
-      const { data } = await api.post(
-        `/api/rfis/${rfi.id}/official-response/`,
-        fd
+      const { data } = await api.post(`/api/rfis/${rfiId}/official-response/`, fd);
+      toast.success(
+        isRevision ? "Revised response submitted." : "Official response submitted."
       );
-      toast.success("Official response submitted. RFI closed.");
-      if (onClosed) onClosed(data);
+      if (onSuccess) onSuccess(data);
     } catch (err) {
       const responseData = err.response?.data;
       if (responseData?.errors?.length) {
-        responseData.errors.forEach((e) =>
-          toast.error(`${e.filename}: ${e.error}`)
-        );
+        responseData.errors.forEach((e) => toast.error(`${e.filename}: ${e.error}`));
       } else {
-        const msg =
+        toast.error(
           responseData?.detail ||
-          responseData?.body?.[0] ||
-          "Failed to submit official response.";
-        toast.error(msg);
+            responseData?.body?.[0] ||
+            "Failed to submit response."
+        );
       }
     } finally {
       setSubmitting(false);
@@ -108,63 +183,8 @@ const OfficialResponsePanel = ({ rfi, onClosed }) => {
     }
   };
 
-  // ── Closed state ────────────────────────────────────────────────────────────
-  if (rfi.status === "closed") {
-    const responseAtts = rfi.official_response_attachments || [];
-    return (
-      <section
-        className="rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-5 space-y-3"
-        data-testid="official-response-closed"
-      >
-        <div>
-          <h3 className="text-base font-semibold text-indigo-900 dark:text-indigo-200">
-            Official Response
-          </h3>
-          <p className="mt-1 text-xs text-indigo-700 dark:text-indigo-400">
-            Submitted by {rfi.responded_by_name || "a project member"}
-            {rfi.responded_at && (
-              <> · {new Date(rfi.responded_at).toLocaleString()}</>
-            )}
-          </p>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-indigo-950 dark:text-indigo-100">
-            {rfi.official_response}
-          </p>
-        </div>
-
-        {responseAtts.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-              Attachments ({responseAtts.length})
-            </p>
-            {responseAtts.map((att) => (
-              <AttachmentRow key={att.id} att={att} />
-            ))}
-          </div>
-        )}
-      </section>
-    );
-  }
-
-  if (!allowed) return null;
-
-  // ── Open / submit state ─────────────────────────────────────────────────────
   return (
-    <section
-      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 space-y-3"
-      aria-label="Submit official response"
-      data-testid="official-response-panel"
-    >
-      <div>
-        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          Submit Official Response
-        </h3>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          Closes this RFI. Only Project Designers, Contract Administrators, and
-          Project Managers can submit.
-        </p>
-      </div>
-
-      {/* Response body */}
+    <div className="space-y-3" data-testid="official-response-panel">
       <textarea
         rows={4}
         value={body}
@@ -242,7 +262,7 @@ const OfficialResponsePanel = ({ rfi, onClosed }) => {
               disabled={submitting}
               className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600"
             >
-              {submitting ? "Submitting…" : "Confirm & Close RFI"}
+              {submitting ? "Submitting…" : "Confirm & Submit"}
             </button>
           </>
         ) : (
@@ -252,10 +272,158 @@ const OfficialResponsePanel = ({ rfi, onClosed }) => {
             disabled={!body.trim()}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600"
           >
-            Submit & Close RFI
+            Submit Response
           </button>
         )}
       </div>
+    </div>
+  );
+};
+
+// ── Main panel ────────────────────────────────────────────────────────────────
+const OfficialResponsePanel = ({ rfi, onUpdated }) => {
+  const { role } = useAuth();
+  const allowed = canSubmitOfficialResponse(role);
+  const canRevise = canReviseOfficialResponse(role);
+
+  const [history, setHistory] = useState(null); // null = not yet fetched
+  const [showReviseForm, setShowReviseForm] = useState(false);
+
+  // Fetch full response history whenever the RFI has any response.
+  useEffect(() => {
+    if (rfi.status === "responded" || rfi.status === "closed") {
+      api
+        .get(`/api/rfis/${rfi.id}/response-history/`)
+        .then(({ data }) => setHistory(data))
+        .catch(() => setHistory([]));
+    } else {
+      setHistory(null);
+    }
+  }, [rfi.id, rfi.status, rfi.responded_at]);
+
+  // ── Responded / closed state ──────────────────────────────────────────────
+  if (rfi.status === "responded" || rfi.status === "closed") {
+    const responseAtts = rfi.official_response_attachments || [];
+    const hasHistory = history && history.length > 0;
+
+    return (
+      <section
+        className="rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-5 space-y-4"
+        data-testid="official-response-closed"
+      >
+        <div>
+          <h3 className="text-base font-semibold text-indigo-900 dark:text-indigo-200">
+            Official Response
+          </h3>
+        </div>
+
+        {/* Response history (newest first) or legacy single view */}
+        {hasHistory ? (
+          <div className="space-y-2">
+            {history.map((rev, idx) => (
+              <ResponseHistoryCard
+                key={rev.id}
+                revision={rev}
+                isLatest={idx === 0}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Legacy fallback for RFIs created before the response-history feature */
+          <div className="space-y-3">
+            <p className="mt-1 text-xs text-indigo-700 dark:text-indigo-400">
+              Submitted by {rfi.responded_by_name || "a project member"}
+              {rfi.responded_at && (
+                <> · {formatDateTime(rfi.responded_at)}</>
+              )}
+            </p>
+            <p className="whitespace-pre-wrap text-sm text-indigo-950 dark:text-indigo-100">
+              {rfi.official_response}
+            </p>
+            {responseAtts.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                  Attachments ({responseAtts.length})
+                </p>
+                {responseAtts.map((att) => (
+                  <AttachmentRow key={att.id} att={att} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Designer: add a revised response (only when not yet closed) */}
+        {canRevise && rfi.status === "responded" && (
+          <div className="border-t border-indigo-200 dark:border-indigo-700 pt-4">
+            {showReviseForm ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">
+                    Submit Revised Response
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowReviseForm(false)}
+                    className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                  This will add a new response record to the audit history.
+                  The requester will still need to close the RFI once reviewed.
+                </p>
+                <ResponseForm
+                  rfiId={rfi.id}
+                  isRevision={true}
+                  onSuccess={(updated) => {
+                    setShowReviseForm(false);
+                    if (onUpdated) onUpdated(updated);
+                  }}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowReviseForm(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-indigo-300 dark:border-indigo-600 px-3 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition"
+                data-testid="revise-response-btn"
+              >
+                + Submit Revised Response
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  if (!allowed) return null;
+
+  // ── Under-review: initial submission form ─────────────────────────────────
+  return (
+    <section
+      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 space-y-3"
+      aria-label="Submit official response"
+    >
+      <div>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          Submit Official Response
+        </h3>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Only Project Designers, Sub Consultants, Contract Administrators, and
+          Project Managers can submit. The RFI moves to <em>Responded</em>{" "}
+          status — the requester can then close it.
+        </p>
+      </div>
+      <ResponseForm
+        rfiId={rfi.id}
+        isRevision={false}
+        onSuccess={(updated) => {
+          if (onUpdated) onUpdated(updated);
+        }}
+      />
     </section>
   );
 };
