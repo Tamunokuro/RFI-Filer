@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Rfi, Project, Member, ProjectMembership, Member, RfiComment, RfiReadState, RfiAttachment
+from .models import (
+    Rfi, Project, Member, ProjectMembership, RfiComment, RfiReadState,
+    RfiAttachment, RfiRevision, OfficialResponseRevision, ContractChange,
+)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -268,12 +271,12 @@ class RfiAttachmentSerializer(serializers.ModelSerializer):
         fields = [
             "id", "rfi", "file", "file_url", "original_filename",
             "content_type", "size", "uploaded_by", "uploaded_by_name",
-            "uploaded_at", "is_official_response",
+            "uploaded_at", "is_official_response", "response_revision",
         ]
         read_only_fields = [
             "id", "rfi", "file_url", "original_filename", "content_type",
             "size", "uploaded_by", "uploaded_by_name", "uploaded_at",
-            "is_official_response",
+            "is_official_response", "response_revision",
         ]
         extra_kwargs = {"file": {"write_only": True}}
 
@@ -294,3 +297,79 @@ class OfficialResponseSerializer(serializers.Serializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Official response cannot be empty.")
         return value
+
+
+class RfiRevisionSerializer(serializers.ModelSerializer):
+    revised_by_name = serializers.CharField(source="revised_by.name", read_only=True, default="")
+
+    class Meta:
+        model = RfiRevision
+        fields = [
+            "id", "rfi", "revised_by", "revised_by_name",
+            "revised_at", "revision_number", "changes",
+            "rfi_status_at_revision",
+        ]
+        read_only_fields = fields
+
+
+class OfficialResponseRevisionSerializer(serializers.ModelSerializer):
+    responded_by_name = serializers.CharField(source="responded_by.name", read_only=True, default="")
+    attachments = RfiAttachmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = OfficialResponseRevision
+        fields = [
+            "id", "rfi", "body", "responded_by", "responded_by_name",
+            "responded_at", "response_number", "attachments",
+        ]
+        read_only_fields = fields
+
+
+class ContractChangeSerializer(serializers.ModelSerializer):
+    project_number = serializers.CharField(source="project.project_number", read_only=True)
+    project_name = serializers.CharField(source="project.project_name", read_only=True)
+    rfi_number = serializers.CharField(source="rfi.rfi_number", read_only=True, default="")
+    rfi_name = serializers.CharField(source="rfi.rfi_name", read_only=True, default="")
+    rfi_slug = serializers.CharField(source="rfi.slug", read_only=True, default="")
+    created_by_name = serializers.CharField(source="created_by.name", read_only=True, default="")
+    issued_by_name = serializers.CharField(source="issued_by.name", read_only=True, default="")
+    anticipated_type_display = serializers.CharField(
+        source="get_anticipated_type_display", read_only=True
+    )
+    issued_type_display = serializers.CharField(
+        source="get_issued_type_display", read_only=True, default=""
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = ContractChange
+        fields = [
+            "id", "project", "project_number", "project_name",
+            "rfi", "rfi_number", "rfi_name", "rfi_slug",
+            "response_revision",
+            "anticipated_type", "anticipated_type_display",
+            "issued_type", "issued_type_display",
+            "reference_number", "description", "notes",
+            "status", "status_display",
+            "created_by", "created_by_name",
+            "issued_by", "issued_by_name",
+            "created_at", "updated_at", "issued_at",
+        ]
+        read_only_fields = [
+            "id", "project_number", "project_name",
+            "rfi_number", "rfi_name", "rfi_slug",
+            "anticipated_type_display", "issued_type_display", "status_display",
+            "created_by", "created_by_name",
+            "issued_by", "issued_by_name",
+            "created_at", "updated_at", "issued_at",
+        ]
+
+    def validate_anticipated_type(self, value):
+        if value not in dict(ContractChange.ChangeType.choices):
+            raise serializers.ValidationError("Invalid change type.")
+        return value
+
+    def validate_description(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Description cannot be empty.")
+        return value.strip()

@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     ProjectListCreate, ProjectDetail,
     RfiListCreate, RfiDetail,
+    RfiPdfExport, RfiTransition,
     MemberListCreate, MemberDetail,
     ProjectMembershipListCreate, ProjectMembershipDetail,
     ProjectMembers, ProjectNextRfiNumber,
@@ -14,6 +15,8 @@ from .views import (
     RfiCommentListCreate, RfiOfficialResponse, RfiMarkRead, RfiUnreadSummary,
     RfiNotifications, RfiMarkAllRead,
     RfiAttachmentListCreate, RfiAttachmentDetail,
+    RfiRevisionList, OfficialResponseRevisionList,
+    ContractChangeList, ContractChangeDetail,
 )
 
 app_name = "rfis"
@@ -36,13 +39,21 @@ urlpatterns = [
     path("rfis/notifications/", RfiNotifications.as_view(), name="rfi-notifications"),
     path("rfis/mark-all-read/", RfiMarkAllRead.as_view(), name="rfi-mark-all-read"),
     path("rfis/<int:pk>/", RfiDetail.as_view(), name="rfi-detail"),
+    path("rfis/<int:pk>/pdf/", RfiPdfExport.as_view(), name="rfi-pdf"),
+    path("rfis/<int:pk>/transition/", RfiTransition.as_view(), name="rfi-transition"),
     path("rfis/<int:pk>/comments/", RfiCommentListCreate.as_view(), name="rfi-comments"),
     path("rfis/<int:pk>/official-response/", RfiOfficialResponse.as_view(), name="rfi-official-response"),
     path("rfis/<int:pk>/mark-read/", RfiMarkRead.as_view(), name="rfi-mark-read"),
     path("rfis/<int:pk>/attachments/", RfiAttachmentListCreate.as_view(), name="rfi-attachments"),
     path("rfis/<int:pk>/attachments/<int:attachment_id>/", RfiAttachmentDetail.as_view(), name="rfi-attachment-detail"),
+    path("rfis/<int:pk>/revisions/", RfiRevisionList.as_view(), name="rfi-revisions"),
+    path("rfis/<int:pk>/response-history/", OfficialResponseRevisionList.as_view(), name="rfi-response-history"),
     # rfis/urls.py
     path("rfis/<int:pk>/<slug:slug>/", RfiDetail.as_view(), name="rfi-detail-slug"),
+
+    # ----- Contract Changes -----
+    path("contract-changes/", ContractChangeList.as_view(), name="contract-change-list"),
+    path("contract-changes/<int:pk>/", ContractChangeDetail.as_view(), name="contract-change-detail"),
 
     # ----- Members -----
     path("members/", MemberListCreate.as_view(), name="member-list"),

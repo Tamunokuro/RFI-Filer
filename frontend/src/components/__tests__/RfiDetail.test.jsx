@@ -25,6 +25,7 @@ vi.mock("../RfiDiscussion",        () => ({ default: () => <div data-testid="dis
 vi.mock("../OfficialResponsePanel",() => ({ default: () => <div data-testid="official-response" /> }));
 vi.mock("../RfiAttachments",       () => ({ default: () => <div data-testid="attachments" /> }));
 vi.mock("../RfiRevisionHistory",   () => ({ default: () => null }));
+vi.mock("../ContractChangesPanel", () => ({ default: () => null }));
 
 import api  from "../../api";
 import toast from "../../toast";

@@ -1,7 +1,7 @@
 import { useAuth } from "../context/Auth";
 import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
-import { FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon, InboxIcon } from "@heroicons/react/24/outline";
+import { FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon, InboxIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
 import NotificationBell from "./NotificationBell";
 import { useTheme } from "../context/Theme";
@@ -53,6 +53,10 @@ const Header = ({ title }) => {
 
             <button onClick={() => navigate("/projects")} className={iconBtn} title="View Projects">
               <FolderOpenIcon className="w-6 h-6" />
+            </button>
+
+            <button onClick={() => navigate("/contract-changes")} className={iconBtn} title="Contract Changes">
+              <DocumentTextIcon className="w-6 h-6" />
             </button>
 
             <button onClick={() => navigate("/email-inbox")} className={iconBtn} title="Email Inbox">

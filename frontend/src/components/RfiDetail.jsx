@@ -7,6 +7,7 @@ import RfiDiscussion from "./RfiDiscussion";
 import OfficialResponsePanel from "./OfficialResponsePanel";
 import RfiAttachments from "./RfiAttachments";
 import RfiRevisionHistory from "./RfiRevisionHistory";
+import ContractChangesPanel from "./ContractChangesPanel";
 import { useAuth, canEditRfi } from "../context/Auth";
 import toast from "../toast";
 
@@ -262,6 +263,9 @@ const RfiDetail = () => {
         />
 
         <OfficialResponsePanel rfi={rfi} onUpdated={(updated) => setRfi(updated)} />
+
+        {/* Contract Changes — only renders when this RFI has any */}
+        <ContractChangesPanel rfiId={rfi.id} hideWhenEmpty />
 
         <RfiDiscussion rfiId={rfi.id} isClosed={closed} onActivity={() => {}} />
       </div>

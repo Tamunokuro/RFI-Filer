@@ -135,12 +135,27 @@ const ResponseHistoryCard = ({ revision, isLatest }) => {
   );
 };
 
+// Anticipated contract change types (must match the backend choices).
+const CONTRACT_CHANGE_TYPES = [
+  { value: "PCN",   label: "Project Change Notice (PCN)" },
+  { value: "SI",    label: "Site Instruction (SI)" },
+  { value: "CD",    label: "Change Directive (CD)" },
+  { value: "CO",    label: "Change Order (CO)" },
+  { value: "Other", label: "Other formal instruction" },
+];
+
 // ── Submission form (shared by initial submit and revised submit) ─────────────
 const ResponseForm = ({ rfiId, isRevision, onSuccess }) => {
   const [body, setBody] = useState("");
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+
+  // Contract-change toggle state
+  const [flagChange, setFlagChange] = useState(false);
+  const [changeType, setChangeType] = useState("PCN");
+  const [changeDescription, setChangeDescription] = useState("");
+
   const fileInputRef = useRef(null);
 
   const addFiles = (e) => {
@@ -161,6 +176,15 @@ const ResponseForm = ({ rfiId, isRevision, onSuccess }) => {
       const fd = new FormData();
       fd.append("body", body.trim());
       files.forEach((f) => fd.append("files", f));
+      // When the responder has flagged a formal instruction, include the
+      // contract-change type and description so the backend creates the
+      // pending ContractChange record alongside the response.
+      if (flagChange && changeType) {
+        fd.append("contract_change_type", changeType);
+        if (changeDescription.trim()) {
+          fd.append("contract_change_description", changeDescription.trim());
+        }
+      }
       const { data } = await api.post(`/api/rfis/${rfiId}/official-response/`, fd);
       toast.success(
         isRevision ? "Revised response submitted." : "Official response submitted."
@@ -243,6 +267,61 @@ const ResponseForm = ({ rfiId, isRevision, onSuccess }) => {
           ))}
         </ul>
       )}
+
+      {/* Formal-instruction (contract change) toggle */}
+      <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={flagChange}
+            onChange={(e) => setFlagChange(e.target.checked)}
+            disabled={submitting}
+            className="mt-0.5 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+            data-testid="flag-contract-change"
+          />
+          <span className="text-amber-900 dark:text-amber-200">
+            <span className="font-semibold">Formal instruction to follow.</span>{" "}
+            <span className="text-amber-800 dark:text-amber-300">
+              A formal contract change document will be issued. The RFI will
+              stay open until that change is logged as issued or cancelled.
+            </span>
+          </span>
+        </label>
+
+        {flagChange && (
+          <div className="pl-6 space-y-2">
+            <div>
+              <label className="block text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                Anticipated change type
+              </label>
+              <select
+                value={changeType}
+                onChange={(e) => setChangeType(e.target.value)}
+                disabled={submitting}
+                data-testid="contract-change-type"
+                className="w-full rounded-md border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-800 text-sm px-2 py-1.5 text-gray-900 dark:text-gray-100"
+              >
+                {CONTRACT_CHANGE_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                Description (optional — defaults to the response body)
+              </label>
+              <textarea
+                rows={2}
+                value={changeDescription}
+                onChange={(e) => setChangeDescription(e.target.value)}
+                placeholder="What is being changed and why a formal instruction is needed…"
+                disabled={submitting}
+                className="w-full rounded-md border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-800 text-sm p-2 text-gray-900 dark:text-gray-100"
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Action buttons */}
       <div className="flex justify-end gap-2">
