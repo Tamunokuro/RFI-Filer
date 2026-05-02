@@ -79,9 +79,43 @@ export const useAuth = () => useContext(AuthContext);
 
 export const OFFICIAL_RESPONDER_ROLES = [
   "Project Designer",
+  "Sub Consultant",
   "Contract Administrator",
   "Project Manager",
 ];
 
+/** Roles that belong to the "design / technical team" side of the workflow. */
+export const DESIGNER_ROLES = ["Project Designer", "Sub Consultant"];
+
+/** Roles that belong to the "requester" side of the workflow. */
+export const REQUESTER_ROLES = [
+  "Contractor",
+  "Contract Administrator",
+  "Project Manager",
+  "Client",
+];
+
 export const canSubmitOfficialResponse = (role) =>
   OFFICIAL_RESPONDER_ROLES.includes(role);
+
+/**
+ * Returns true when a designer-role user is allowed to submit a *revised*
+ * official response (i.e. the RFI is already in "responded" status).
+ */
+export const canReviseOfficialResponse = (role) =>
+  DESIGNER_ROLES.includes(role);
+
+/**
+ * Returns true when the current user may edit the RFI's content fields.
+ *
+ * Rules:
+ *  - Closed RFIs are never editable.
+ *  - Designer roles can only edit while the RFI is still "open" (draft).
+ *  - Requester roles can edit when "open" (draft) or "under_review" (tracked revision).
+ *  - All other roles follow the same rule as requester roles.
+ */
+export const canEditRfi = (role, rfiStatus) => {
+  if (rfiStatus === "closed") return false;
+  if (DESIGNER_ROLES.includes(role)) return rfiStatus === "open";
+  return rfiStatus === "open" || rfiStatus === "under_review";
+};

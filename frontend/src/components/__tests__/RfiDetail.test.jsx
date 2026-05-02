@@ -12,7 +12,10 @@ vi.mock("../../toast", () => ({
   default: { error: vi.fn(), success: vi.fn() },
 }));
 vi.mock("../../context/Auth", () => ({
-  useAuth: () => ({ memberId: "1", isAuthenticated: true }),
+  useAuth: () => ({ memberId: "1", isAuthenticated: true, role: "Contractor" }),
+  // canEditRfi: Contractor can edit when open or under_review
+  canEditRfi: (role, rfiStatus) =>
+    rfiStatus !== "closed" && rfiStatus !== "submitted" && rfiStatus !== "responded",
 }));
 
 // Stub heavy child components so this suite stays focused on RfiDetail itself.
@@ -21,6 +24,8 @@ vi.mock("../Footer",               () => ({ default: () => <div data-testid="foo
 vi.mock("../RfiDiscussion",        () => ({ default: () => <div data-testid="discussion" /> }));
 vi.mock("../OfficialResponsePanel",() => ({ default: () => <div data-testid="official-response" /> }));
 vi.mock("../RfiAttachments",       () => ({ default: () => <div data-testid="attachments" /> }));
+vi.mock("../RfiRevisionHistory",   () => ({ default: () => null }));
+vi.mock("../ContractChangesPanel", () => ({ default: () => null }));
 
 import api  from "../../api";
 import toast from "../../toast";
@@ -103,6 +108,24 @@ describe("RfiDetail — rendering", () => {
     expect(await screen.findByTestId("rfi-status-badge")).toHaveTextContent("Open");
   });
 
+  it("shows the Submitted status badge", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "submitted" } });
+    renderDetail();
+    expect(await screen.findByTestId("rfi-status-badge")).toHaveTextContent("Submitted");
+  });
+
+  it("shows the Under Review status badge", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "under_review" } });
+    renderDetail();
+    expect(await screen.findByTestId("rfi-status-badge")).toHaveTextContent("Under Review");
+  });
+
+  it("shows the Responded status badge", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "responded" } });
+    renderDetail();
+    expect(await screen.findByTestId("rfi-status-badge")).toHaveTextContent("Responded");
+  });
+
   it("shows the Closed status badge for a closed RFI", async () => {
     api.get.mockResolvedValue({ data: { ...RFI, status: "closed" } });
     renderDetail();
@@ -138,6 +161,64 @@ describe("RfiDetail — Edit button", () => {
     renderDetail();
     await screen.findByText("Roof drainage clarification");
     expect(screen.queryByRole("button", { name: /edit/i })).toBeNull();
+  });
+});
+
+// ── Status transition button ──────────────────────────────────────────────────
+
+describe("RfiDetail — status transition button", () => {
+  it("shows 'Submit for Review' when status is open", async () => {
+    renderDetail();
+    await screen.findByText("Roof drainage clarification");
+    expect(screen.getByTestId("rfi-transition-btn")).toHaveTextContent("Submit for Review");
+  });
+
+  it("shows 'Mark Under Review' when status is submitted", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "submitted" } });
+    renderDetail();
+    await screen.findByText("Roof drainage clarification");
+    expect(screen.getByTestId("rfi-transition-btn")).toHaveTextContent("Mark Under Review");
+  });
+
+  it("shows no transition button when status is under_review (advance via Official Response)", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "under_review" } });
+    renderDetail();
+    await screen.findByText("Roof drainage clarification");
+    expect(screen.queryByTestId("rfi-transition-btn")).toBeNull();
+  });
+
+  it("shows 'Close RFI' when status is responded", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "responded" } });
+    renderDetail();
+    await screen.findByText("Roof drainage clarification");
+    expect(screen.getByTestId("rfi-transition-btn")).toHaveTextContent("Close RFI");
+  });
+
+  it("shows no transition button when the RFI is closed", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "closed" } });
+    renderDetail();
+    await screen.findByText("Roof drainage clarification");
+    expect(screen.queryByTestId("rfi-transition-btn")).toBeNull();
+  });
+
+  it("calls the transition endpoint with the correct target status", async () => {
+    api.get.mockResolvedValue({ data: { ...RFI, status: "open" } });
+    api.post = vi.fn().mockResolvedValue({});
+    // After transition, reload returns submitted RFI
+    api.get
+      .mockResolvedValueOnce({ data: { ...RFI, status: "open" } })
+      .mockResolvedValueOnce({ data: { ...RFI, status: "submitted" } });
+
+    renderDetail();
+    await screen.findByText("Roof drainage clarification");
+    await userEvent.click(screen.getByTestId("rfi-transition-btn"));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        "/api/rfis/1/transition/",
+        { status: "submitted" }
+      );
+    });
   });
 });
 

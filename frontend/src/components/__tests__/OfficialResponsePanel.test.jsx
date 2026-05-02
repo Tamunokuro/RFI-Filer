@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../../api", () => ({
-  default: { post: vi.fn() },
+  default: { post: vi.fn(), get: vi.fn() },
 }));
 vi.mock("../../toast", () => ({
   default: { success: vi.fn(), error: vi.fn() },
@@ -42,6 +42,13 @@ const closedRfi = {
   official_response_attachments: [],
 };
 
+// "responded" is the state right after an official response is submitted
+// but before the requester formally closes the RFI.
+const respondedRfi = {
+  ...closedRfi,
+  status: "responded",
+};
+
 const closedRfiWithAttachments = {
   ...closedRfi,
   official_response_attachments: [
@@ -73,10 +80,10 @@ async function submitResponse(text = "Approved.") {
     text
   );
   await userEvent.click(
-    screen.getByRole("button", { name: /Submit & Close RFI/i })
+    screen.getByRole("button", { name: /Submit Response/i })
   );
   await userEvent.click(
-    screen.getByRole("button", { name: /Confirm & Close RFI/i })
+    screen.getByRole("button", { name: /Confirm & Submit/i })
   );
 }
 
@@ -85,12 +92,15 @@ async function submitResponse(text = "Approved.") {
 describe("OfficialResponsePanel", () => {
   beforeEach(() => {
     api.post.mockReset();
+    api.get.mockReset();
     mockUseAuth.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    // Default: response-history returns empty (no prior revisions)
+    api.get.mockResolvedValue({ data: [] });
   });
 
-  // ── Closed state display ──────────────────────────────────────────────────
+  // ── Closed / Responded state display ─────────────────────────────────────
 
   it("renders the submitted response text when the RFI is already closed", () => {
     mockUseAuth.mockReturnValue({ role: "Contractor" });
@@ -98,6 +108,13 @@ describe("OfficialResponsePanel", () => {
     expect(screen.getByTestId("official-response-closed")).toBeInTheDocument();
     expect(screen.getByText("Proceed with Option A.")).toBeInTheDocument();
     expect(screen.getByText(/Alex PM/)).toBeInTheDocument();
+  });
+
+  it("renders the read-only panel when the RFI status is 'responded'", () => {
+    mockUseAuth.mockReturnValue({ role: "Project Manager" });
+    render(<OfficialResponsePanel rfi={respondedRfi} />);
+    expect(screen.getByTestId("official-response-closed")).toBeInTheDocument();
+    expect(screen.getByText("Proceed with Option A.")).toBeInTheDocument();
   });
 
   it("shows attachment rows when closed RFI has official-response attachments", () => {
@@ -185,10 +202,10 @@ describe("OfficialResponsePanel", () => {
 
   it("submits FormData with body only when no files are staged", async () => {
     mockUseAuth.mockReturnValue({ role: "Project Manager" });
-    api.post.mockResolvedValueOnce({ data: closedRfi });
-    const onClosed = vi.fn();
+    api.post.mockResolvedValueOnce({ data: respondedRfi });
+    const onUpdated = vi.fn();
 
-    render(<OfficialResponsePanel rfi={openRfi} onClosed={onClosed} />);
+    render(<OfficialResponsePanel rfi={openRfi} onUpdated={onUpdated} />);
     await submitResponse("Approved.");
 
     await waitFor(() => expect(api.post).toHaveBeenCalledOnce());
@@ -198,12 +215,12 @@ describe("OfficialResponsePanel", () => {
     expect(payload).toBeInstanceOf(FormData);
     expect(payload.get("body")).toBe("Approved.");
     expect(toast.success).toHaveBeenCalled();
-    expect(onClosed).toHaveBeenCalledWith(closedRfi);
+    expect(onUpdated).toHaveBeenCalledWith(respondedRfi);
   });
 
   it("trims whitespace from the body before sending", async () => {
     mockUseAuth.mockReturnValue({ role: "Project Manager" });
-    api.post.mockResolvedValueOnce({ data: closedRfi });
+    api.post.mockResolvedValueOnce({ data: respondedRfi });
 
     render(<OfficialResponsePanel rfi={openRfi} />);
     await submitResponse("  Trimmed response.  ");
@@ -216,7 +233,7 @@ describe("OfficialResponsePanel", () => {
 
   it("appends staged files to FormData on submit", async () => {
     mockUseAuth.mockReturnValue({ role: "Project Manager" });
-    api.post.mockResolvedValueOnce({ data: closedRfi });
+    api.post.mockResolvedValueOnce({ data: respondedRfi });
 
     render(<OfficialResponsePanel rfi={openRfi} />);
 
@@ -242,7 +259,7 @@ describe("OfficialResponsePanel", () => {
     mockUseAuth.mockReturnValue({ role: "Project Manager" });
     render(<OfficialResponsePanel rfi={openRfi} />);
     // Button is disabled when body is empty
-    expect(screen.getByRole("button", { name: /Submit & Close RFI/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Submit Response/i })).toBeDisabled();
   });
 
   it("can cancel from the confirm step without submitting", async () => {
@@ -254,14 +271,14 @@ describe("OfficialResponsePanel", () => {
       "Will cancel."
     );
     await userEvent.click(
-      screen.getByRole("button", { name: /Submit & Close RFI/i })
+      screen.getByRole("button", { name: /Submit Response/i })
     );
     // Cancel from confirm step
     await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
 
     expect(api.post).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: /Submit & Close RFI/i })
+      screen.getByRole("button", { name: /Submit Response/i })
     ).toBeInTheDocument();
   });
 

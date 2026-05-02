@@ -82,8 +82,11 @@ class ProjectMembership(models.Model):
 
 class Rfi(models.Model):
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        CLOSED = "closed", "Closed"
+        OPEN         = "open",         "Open"
+        SUBMITTED    = "submitted",    "Submitted"
+        UNDER_REVIEW = "under_review", "Under Review"
+        RESPONDED    = "responded",    "Responded"
+        CLOSED       = "closed",       "Closed"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="rfis")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rfis")
@@ -104,7 +107,7 @@ class Rfi(models.Model):
     proposed_solution = models.TextField(blank=True)
     slug = models.SlugField(max_length=140, unique=True, blank=True)
 
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.OPEN)
     official_response = models.TextField(blank=True)
     responded_by = models.ForeignKey(
         Member, on_delete=models.SET_NULL, null=True, blank=True, related_name="responded_rfis"
@@ -152,6 +155,14 @@ class RfiAttachment(models.Model):
     size = models.PositiveBigIntegerField(default=0)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_official_response = models.BooleanField(default=False)
+    # Links this attachment to a specific official response revision (null = general attachment).
+    response_revision = models.ForeignKey(
+        "OfficialResponseRevision",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="attachments",
+    )
 
     class Meta:
         ordering = ["-uploaded_at", "-id"]
@@ -190,3 +201,156 @@ class RfiReadState(models.Model):
     class Meta:
         unique_together = ("rfi", "member")
         indexes = [models.Index(fields=["member", "rfi"])]
+
+
+class RfiRevision(models.Model):
+    """
+    Records a single revision of an RFI's content fields.
+
+    Created whenever an RFI is edited while it is ``under_review``.
+    The ``changes`` JSON maps field names to ``{"before": …, "after": …}`` pairs,
+    giving designers a clear picture of exactly what the requester changed.
+    """
+    rfi = models.ForeignKey(Rfi, on_delete=models.CASCADE, related_name="revisions")
+    revised_by = models.ForeignKey(
+        Member,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rfi_revisions",
+    )
+    revised_at = models.DateTimeField(auto_now_add=True)
+    revision_number = models.PositiveIntegerField()
+    # {field_name: {"before": <value>, "after": <value>}}
+    # List fields (designers, contract_administrators) store arrays of names.
+    changes = models.JSONField()
+    rfi_status_at_revision = models.CharField(max_length=15)
+
+    class Meta:
+        ordering = ["-revision_number"]
+        verbose_name = "RFI Revision"
+        verbose_name_plural = "RFI Revisions"
+
+    def __str__(self):
+        return f"Revision #{self.revision_number} of RFI {self.rfi_id}"
+
+
+class OfficialResponseRevision(models.Model):
+    """
+    Stores every official response or revised response for an RFI.
+
+    ``response_number`` starts at 1 (initial response) and increments with each
+    revision submitted by a designer.  ``Rfi.official_response`` always mirrors
+    the latest revision's body.  Attachments are linked via the FK on
+    ``RfiAttachment.response_revision``.
+    """
+    rfi = models.ForeignKey(Rfi, on_delete=models.CASCADE, related_name="response_revisions")
+    body = models.TextField()
+    responded_by = models.ForeignKey(
+        Member,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="official_response_revisions",
+    )
+    responded_at = models.DateTimeField(auto_now_add=True)
+    response_number = models.PositiveIntegerField()  # 1 = original, 2+ = revisions
+
+    class Meta:
+        ordering = ["-response_number"]
+        verbose_name = "Official Response Revision"
+        verbose_name_plural = "Official Response Revisions"
+
+    def __str__(self):
+        return f"Response #{self.response_number} for RFI {self.rfi_id}"
+
+
+class ContractChange(models.Model):
+    """
+    Tracks formal contract changes flagged during the RFI workflow.
+
+    When a designer (or other responder) submits an official response, they
+    can indicate that a formal instruction will follow — e.g. a Project
+    Change Notice (PCN), Site Instruction (SI), Change Directive (CD), or
+    Change Order (CO).  Each flag creates a ``ContractChange`` record in
+    the ``pending`` state.  The RFI cannot be closed while any of its
+    contract changes are still pending.
+
+    Once the formal document has been issued, an authorised user updates
+    the record with the reference number and supporting details, moving it
+    to the ``issued`` state.  Cancelled changes are kept in the audit trail
+    but do not block RFI closure.
+    """
+
+    class ChangeType(models.TextChoices):
+        PCN   = "PCN",   "Project Change Notice"
+        SI    = "SI",    "Site Instruction"
+        CD    = "CD",    "Change Directive"
+        CO    = "CO",    "Change Order"
+        OTHER = "Other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING   = "pending",   "Pending"
+        ISSUED    = "issued",    "Issued"
+        CANCELLED = "cancelled", "Cancelled"
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="contract_changes"
+    )
+    rfi = models.ForeignKey(
+        Rfi, on_delete=models.CASCADE, null=True, blank=True,
+        related_name="contract_changes",
+    )
+    response_revision = models.ForeignKey(
+        OfficialResponseRevision,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="contract_changes",
+    )
+    anticipated_type = models.CharField(
+        max_length=10, choices=ChangeType.choices,
+        help_text="The type of formal change document the responder expects to issue.",
+    )
+    issued_type = models.CharField(
+        max_length=10, choices=ChangeType.choices, blank=True,
+        help_text="The actual type of formal document issued (may differ from anticipated).",
+    )
+    reference_number = models.CharField(
+        max_length=50, blank=True,
+        help_text="Reference of the issued document, e.g. PCN-007 or SI-012.",
+    )
+    description = models.TextField(
+        help_text="Why a formal instruction is required and what is being changed."
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Free-form notes added when the change is issued or cancelled."
+    )
+    status = models.CharField(
+        max_length=15, choices=Status.choices, default=Status.PENDING,
+    )
+    created_by = models.ForeignKey(
+        Member, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="created_contract_changes",
+    )
+    issued_by = models.ForeignKey(
+        Member, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="issued_contract_changes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    issued_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "Contract Change"
+        verbose_name_plural = "Contract Changes"
+        indexes = [
+            models.Index(fields=["project", "status"]),
+            models.Index(fields=["rfi", "status"]),
+        ]
+
+    def __str__(self):
+        ref = self.reference_number or self.anticipated_type
+        return f"{ref} ({self.status}) — Project {self.project_id}"

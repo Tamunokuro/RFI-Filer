@@ -10,6 +10,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   MagnifyingGlassIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/20/solid";
 import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 
@@ -120,11 +121,11 @@ const ProjectList = () => {
                 key={project.id}
                 className="border border-gray-200 dark:border-gray-700 rounded p-4 bg-white dark:bg-gray-800"
               >
-                <div
-                  className="flex justify-between items-center cursor-pointer"
-                  onClick={() => toggleRFIs(project.id)}
-                >
-                  <div>
+                <div className="flex justify-between items-center gap-3">
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => toggleRFIs(project.id)}
+                  >
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {project.project_number} - {project.project_name}
                     </h3>
@@ -135,12 +136,31 @@ const ProjectList = () => {
                       RFIs: {project.rfi_count || 0}
                     </p>
                   </div>
-                  <div>
-                    {openProjectIds[project.id] ? (
-                      <ChevronUpIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    ) : (
-                      <ChevronDownIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                    )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/projects/${project.id}`);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md border border-indigo-300 dark:border-indigo-600 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                      title="Open project view"
+                    >
+                      <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleRFIs(project.id)}
+                      className="text-gray-700 dark:text-gray-300 p-1"
+                      aria-label={openProjectIds[project.id] ? "Collapse" : "Expand"}
+                    >
+                      {openProjectIds[project.id] ? (
+                        <ChevronUpIcon className="w-5 h-5" />
+                      ) : (
+                        <ChevronDownIcon className="w-5 h-5" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -149,40 +169,43 @@ const ProjectList = () => {
                     {project.rfis?.length > 0 ? (
                       <ul className="space-y-2">
                         {project.rfis.map((rfi) => (
-                          <li
-                            key={rfi.id}
-                            className={`p-2 border rounded shadow-sm ${
-                              isOverdue(rfi)
-                                ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700"
-                                : rfi.status === "closed"
-                                ? "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700"
-                                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700"
-                            }`}
-                          >
-                            <p className="font-semibold">{rfi.rfi_name}</p>
-                            <p className="text-sm">
-                              RFI Number: {rfi.rfi_number}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm mt-0.5">
-                              <span className="text-gray-600 dark:text-gray-400 shrink-0">Designers / CAs:</span>
-                              <AssigneeAvatars
-                                members={[
-                                  ...(rfi.designers_detail || []),
-                                  ...(rfi.contract_administrators_detail || []),
-                                ]}
-                                size="sm"
-                              />
-                            </div>
-                            <p className="text-sm">Due: {rfi.due_date}</p>
-                            {rfi.status === "closed" ? (
-                              <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
-                                ✓ Closed
+                          <li key={rfi.id}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
+                              className={`w-full text-left p-2 border rounded shadow-sm transition ${
+                                isOverdue(rfi)
+                                  ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/40"
+                                  : rfi.status === "closed"
+                                  ? "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                  : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              }`}
+                            >
+                              <p className="font-semibold">{rfi.rfi_name}</p>
+                              <p className="text-sm">
+                                RFI Number: {rfi.rfi_number}
                               </p>
-                            ) : isOverdue(rfi) ? (
-                              <p className="text-xs font-medium text-red-600 dark:text-red-400">
-                                ⚠️ Overdue
-                              </p>
-                            ) : null}
+                              <div className="flex items-center gap-2 text-sm mt-0.5">
+                                <span className="text-gray-600 dark:text-gray-400 shrink-0">Designers / CAs:</span>
+                                <AssigneeAvatars
+                                  members={[
+                                    ...(rfi.designers_detail || []),
+                                    ...(rfi.contract_administrators_detail || []),
+                                  ]}
+                                  size="sm"
+                                />
+                              </div>
+                              <p className="text-sm">Due: {rfi.due_date}</p>
+                              {rfi.status === "closed" ? (
+                                <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
+                                  ✓ Closed
+                                </p>
+                              ) : isOverdue(rfi) ? (
+                                <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                                  ⚠️ Overdue
+                                </p>
+                              ) : null}
+                            </button>
                           </li>
                         ))}
                       </ul>

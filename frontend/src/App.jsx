@@ -13,6 +13,8 @@ import RfiList from "./components/RfiList";
 import UpdateRfiForm from "./components/UpdateRfiForm";
 import RfiDetail from "./components/RfiDetail";
 import ProjectList from "./components/ProjectList";
+import ProjectDetail from "./components/ProjectDetail";
+import ContractChanges from "./components/ContractChanges";
 
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -90,6 +92,22 @@ function AppShell() {
           element={
             <PrivateRoute>
               <ProjectList />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/projects/:pk"
+          element={
+            <PrivateRoute>
+              <ProjectDetail />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/contract-changes"
+          element={
+            <PrivateRoute>
+              <ContractChanges />
             </PrivateRoute>
           }
         />

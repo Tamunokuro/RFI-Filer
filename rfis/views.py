@@ -16,11 +16,16 @@ from django.conf import settings
 
 from rest_framework.parsers import MultiPartParser, FormParser
 
-from .models import Project, Rfi, Member, ProjectMembership, RfiComment, RfiReadState, RfiAttachment
+from .models import (
+    Project, Rfi, Member, ProjectMembership,
+    RfiComment, RfiReadState, RfiAttachment,
+    RfiRevision, OfficialResponseRevision, ContractChange,
+)
 from .serializer import (
     ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer,
     RfiCommentSerializer, OfficialResponseSerializer, RfiAttachmentSerializer,
-    MemberProfileUpdateSerializer,
+    MemberProfileUpdateSerializer, RfiRevisionSerializer, OfficialResponseRevisionSerializer,
+    ContractChangeSerializer,
 )
 
 
@@ -39,10 +44,68 @@ from .serializer import CustomTokenObtainPairSerializer
 
 OFFICIAL_RESPONDER_ROLES = {
     Member.Role.PROJECT_DESIGNER,
+    Member.Role.SUB_CONSULTANT,
     Member.Role.CONTRACT_ADMIN,
     Member.Role.PROJECT_MANAGER,
 }
 
+# Only these roles (the technical design team) may submit a *revised* official
+# response after the RFI is already in "responded" state.
+RESPONSE_REVISOR_ROLES = {
+    Member.Role.PROJECT_DESIGNER,
+    Member.Role.SUB_CONSULTANT,
+}
+
+# Roles whose RFI edits are restricted to "under_review" status only
+# (they are the "requester" side of the workflow).
+REQUESTER_ROLES = {
+    Member.Role.CONTRACTOR,
+    Member.Role.CONTRACT_ADMIN,
+    Member.Role.PROJECT_MANAGER,
+    Member.Role.CLIENT,
+}
+
+# Designer / technical-team roles — they respond to RFIs rather than raising them.
+DESIGNER_ROLES = {
+    Member.Role.PROJECT_DESIGNER,
+    Member.Role.SUB_CONSULTANT,
+}
+
+# RFI fields whose changes are tracked in RfiRevision records.
+TRACKED_RFI_FIELDS = [
+    "rfi_name", "question", "proposed_solution",
+    "trade", "due_date", "received_date",
+]
+
+
+def _capture_rfi_snapshot(rfi):
+    """Snapshot all tracked scalar fields + M2M for before/after comparison."""
+    snap = {f: str(getattr(rfi, f, "") or "") for f in TRACKED_RFI_FIELDS}
+    snap["designers"] = sorted(m.name for m in rfi.designers.all())
+    snap["contract_administrators"] = sorted(m.name for m in rfi.contract_administrators.all())
+    return snap
+
+
+def _diff_snapshots(before, after):
+    """Return only fields that changed, with before/after values."""
+    changes = {}
+    for field in set(before) | set(after):
+        b, a = before.get(field), after.get(field)
+        if b != a:
+            changes[field] = {"before": b, "after": a}
+    return changes
+
+
+# Valid forward transitions for the RFI status workflow.
+# Keys are the current status; values are the set of allowed next statuses.
+# "closed" is a terminal state — no transitions out of it.
+VALID_TRANSITIONS: dict[str, set[str]] = {
+    Rfi.Status.OPEN:         {Rfi.Status.SUBMITTED, Rfi.Status.CLOSED},
+    Rfi.Status.SUBMITTED:    {Rfi.Status.UNDER_REVIEW, Rfi.Status.CLOSED},
+    Rfi.Status.UNDER_REVIEW: {Rfi.Status.RESPONDED, Rfi.Status.CLOSED},
+    Rfi.Status.RESPONDED:    {Rfi.Status.CLOSED},
+    Rfi.Status.CLOSED:       set(),
+}
 
 
 User = get_user_model()
@@ -318,7 +381,11 @@ class RfiListCreate(APIView):
 
         status_filter = request.query_params.get("status")
         if status_filter:
-            qs = qs.filter(status=status_filter)
+            # Accept either a single value ("open") or a comma-separated list
+            # ("open,submitted,under_review") so the UI can fetch all active RFIs
+            # in a single request without multiple round-trips.
+            statuses = [s.strip() for s in status_filter.split(",") if s.strip()]
+            qs = qs.filter(status__in=statuses)
 
         term = request.query_params.get("search")
         if term:
@@ -397,16 +464,201 @@ class RfiDetail(APIView):
 
     def patch(self, request, pk):
         rfi = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        role = getattr(member, "role", None)
+
+        # ── Permission: who can edit at which status ──────────────────────────
+        # Closed RFIs are immutable for everyone.
+        if rfi.status == Rfi.Status.CLOSED:
+            return Response(
+                {"detail": "Closed RFIs cannot be edited."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Designer roles (Project Designer, Sub Consultant) only edit while
+        # the RFI is still open (draft). Once submitted they should be
+        # responding, not rewriting the question.
+        if role in DESIGNER_ROLES and rfi.status != Rfi.Status.OPEN:
+            return Response(
+                {"detail": "Designers can only edit an RFI while it is in open (draft) status."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Requester roles (Contractor, CA, PM, Client) may edit only when the
+        # RFI is open (draft) or actively under review. At every other stage
+        # (submitted, responded) the document is locked from their side.
+        if role in REQUESTER_ROLES and rfi.status not in (Rfi.Status.OPEN, Rfi.Status.UNDER_REVIEW):
+            return Response(
+                {"detail": "You can only edit this RFI when it is open (draft) or under review."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # ── Snapshot before for revision tracking ─────────────────────────────
+        # Revisions are recorded only when the RFI is under_review so that
+        # designers see exactly what changed during the review cycle.
+        track_revision = rfi.status == Rfi.Status.UNDER_REVIEW
+        before_snap = _capture_rfi_snapshot(rfi) if track_revision else None
+
         serializer = RfiSerializer(rfi, data=request.data, partial=True, context={"request": request})
-        if serializer.is_valid():
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
             rfi = serializer.save()
-            return Response(RfiSerializer(rfi).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            if track_revision and before_snap:
+                after_snap = _capture_rfi_snapshot(rfi)
+                changes = _diff_snapshots(before_snap, after_snap)
+                if changes:
+                    from django.db.models import Max
+                    last_num = rfi.revisions.aggregate(n=Max("revision_number"))["n"] or 0
+                    RfiRevision.objects.create(
+                        rfi=rfi,
+                        revised_by=member,
+                        revision_number=last_num + 1,
+                        changes=changes,
+                        rfi_status_at_revision=rfi.status,
+                    )
+
+        return Response(RfiSerializer(rfi, context={"request": request}).data)
 
     def delete(self, request, pk):
         rfi = self.get_object(pk)
         rfi.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- RFI PDF Export ----------
+
+class RfiPdfExport(APIView):
+    """
+    GET /api/rfis/<pk>/pdf/
+
+    Generates and streams a formal PDF document for the requested RFI.
+    The PDF is suitable for distribution, record-keeping, and contract use.
+    Requires authentication (same as all other RFI endpoints).
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import HttpResponse
+        from .pdf import build_rfi_pdf
+
+        rfi = get_object_or_404(
+            Rfi.objects
+            .select_related("project", "project__project_manager", "responded_by")
+            .prefetch_related("designers", "contract_administrators", "attachments"),
+            pk=pk,
+        )
+
+        # Deep-link back to the RFI in the web application (appears in the footer).
+        # settings.FRONTEND_URL defaults to "http://localhost:5173" in dev.
+        frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+        app_url = f"{frontend_url}/rfi/{rfi.id}/{rfi.slug}" if frontend_url else None
+
+        # Build absolute URLs for every attachment so the PDF can link to them.
+        # request.build_absolute_uri() handles scheme + host automatically,
+        # turning "/media/rfi_attachments/7/spec.pdf" into a full URL.
+        attachment_urls = {
+            att.id: request.build_absolute_uri(att.file.url)
+            for att in rfi.attachments.all()
+            if att.file
+        }
+
+        buf = build_rfi_pdf(rfi, app_url=app_url, attachment_urls=attachment_urls)
+
+        # Sanitise the filename — strip characters that break Content-Disposition
+        safe_name = f"{rfi.rfi_number} - {rfi.rfi_name}"
+        safe_name = "".join(c for c in safe_name if c.isalnum() or c in " -_.")
+        filename = f"{safe_name}.pdf"
+
+        response = HttpResponse(buf.read(), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+# ---------- RFI Status Transition ----------
+
+class RfiTransition(APIView):
+    """
+    POST /api/rfis/<pk>/transition/
+
+    Advances an RFI through the status workflow.  Accepts ``{"status": "<new>"}``
+    and validates that the transition is allowed from the RFI's current state.
+
+    Allowed transitions
+    -------------------
+    open         → submitted | closed
+    submitted    → under_review | closed
+    under_review → responded | closed
+    responded    → closed
+    closed       → (terminal — no further transitions)
+
+    Any authenticated project member may trigger a transition.
+    Setting ``closed_at`` is handled automatically when reaching the
+    ``closed`` state.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        new_status = (request.data.get("status") or "").strip()
+
+        # Validate the requested status value
+        valid_values = {s.value for s in Rfi.Status}
+        if new_status not in valid_values:
+            return Response(
+                {"detail": f"'{new_status}' is not a valid status. "
+                           f"Choose one of: {', '.join(sorted(valid_values))}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        allowed_next = VALID_TRANSITIONS.get(rfi.status, set())
+        if new_status not in allowed_next:
+            if not allowed_next:
+                detail = f"RFI is already closed and cannot be transitioned further."
+            else:
+                readable = ", ".join(sorted(allowed_next))
+                detail = (
+                    f"Cannot transition from '{rfi.status}' to '{new_status}'. "
+                    f"Allowed next status values: {readable}."
+                )
+            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Block closure while any contract change is still pending — the
+        # RFI can only be closed once every flagged formal instruction has
+        # been issued (or explicitly cancelled).
+        if new_status == Rfi.Status.CLOSED:
+            pending = rfi.contract_changes.filter(status=ContractChange.Status.PENDING)
+            pending_count = pending.count()
+            if pending_count:
+                return Response(
+                    {
+                        "detail": (
+                            f"This RFI has {pending_count} pending contract "
+                            f"change{'s' if pending_count != 1 else ''}. "
+                            "Mark them as issued or cancelled before closing."
+                        ),
+                        "pending_contract_changes": pending_count,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        update_fields = ["status"]
+        rfi.status = new_status
+
+        # Stamp closed_at when the RFI reaches the terminal state
+        if new_status == Rfi.Status.CLOSED and rfi.closed_at is None:
+            rfi.closed_at = timezone.now()
+            update_fields.append("closed_at")
+
+        rfi.save(update_fields=update_fields)
+        return Response(
+            RfiSerializer(rfi, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 # ---------- RFI Discussion / Official Response ----------
@@ -453,21 +705,66 @@ class RfiOfficialResponse(APIView):
         member = getattr(request.user, "member", None)
         if member is None or member.role not in OFFICIAL_RESPONDER_ROLES:
             return Response(
-                {"detail": "Only Project Designers, Contract Administrators, or Project Managers "
-                           "may submit an official response."},
+                {"detail": "Only Project Designers, Sub Consultants, Contract Administrators, "
+                           "or Project Managers may submit an official response."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        # Determine whether this is an initial response or a revision.
         if rfi.status == Rfi.Status.CLOSED:
             return Response(
-                {"detail": "This RFI is already closed."},
+                {"detail": "This RFI is closed and no longer accepts official responses."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        elif rfi.status == Rfi.Status.RESPONDED:
+            # Only the design team (Project Designer / Sub Consultant) may
+            # submit a revised response after the initial one.
+            if member.role not in RESPONSE_REVISOR_ROLES:
+                return Response(
+                    {"detail": "Only Project Designers or Sub Consultants may submit a "
+                               "revised official response."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            is_revision = True
+        elif rfi.status == Rfi.Status.UNDER_REVIEW:
+            is_revision = False
+        else:
+            return Response(
+                {"detail": "An official response can only be submitted when the RFI is "
+                           "under review."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = OfficialResponseSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         body = serializer.validated_data["body"]
         files = request.FILES.getlist("files")
+
+        # Optional flag: a formal contract change is anticipated.
+        # Frontend sends this when the responder ticks "Formal instruction
+        # to follow" and picks a type (PCN / SI / CD / CO / Other).
+        contract_change_type = (request.data.get("contract_change_type") or "").strip()
+        contract_change_description = (
+            request.data.get("contract_change_description") or ""
+        ).strip()
+        if contract_change_type:
+            valid_types = {c.value for c in ContractChange.ChangeType}
+            if contract_change_type not in valid_types:
+                return Response(
+                    {
+                        "contract_change_type": (
+                            f"'{contract_change_type}' is not a valid change type. "
+                            f"Choose one of: {', '.join(sorted(valid_types))}."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not contract_change_description:
+                # Default the description to the response body so the
+                # contract-change record is never created empty.
+                contract_change_description = body
 
         # Validate every file before touching the database
         file_errors = []
@@ -482,22 +779,40 @@ class RfiOfficialResponse(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from django.db.models import Max
+
         now = timezone.now()
         with transaction.atomic():
+            # Determine next response_number (1 = original, 2+ = revisions)
+            last_resp_num = rfi.response_revisions.aggregate(n=Max("response_number"))["n"] or 0
+            resp_num = last_resp_num + 1
+
+            # Persist the response revision record for the audit trail
+            response_rev = OfficialResponseRevision.objects.create(
+                rfi=rfi,
+                body=body,
+                responded_by=member,
+                response_number=resp_num,
+            )
+
+            # Post a discussion comment so the thread stays in sync
             RfiComment.objects.create(
                 rfi=rfi,
                 author=member,
                 body=body,
                 is_official_response=True,
             )
-            rfi.status = Rfi.Status.CLOSED
+
+            # Keep the top-level RFI fields pointing at the latest response
+            rfi.status = Rfi.Status.RESPONDED
             rfi.official_response = body
             rfi.responded_by = member
             rfi.responded_at = now
-            rfi.closed_at = now
             rfi.save(update_fields=[
-                "status", "official_response", "responded_by", "responded_at", "closed_at",
+                "status", "official_response", "responded_by", "responded_at",
             ])
+
+            # Attach any uploaded files, linking them to this specific revision
             for f in files:
                 RfiAttachment.objects.create(
                     rfi=rfi,
@@ -507,11 +822,64 @@ class RfiOfficialResponse(APIView):
                     content_type=(f.content_type or "").lower(),
                     size=f.size,
                     is_official_response=True,
+                    response_revision=response_rev,
+                )
+
+            # Flag a pending contract change if the responder asked for one.
+            # This keeps the RFI from being closed until the formal
+            # instruction is issued or cancelled.
+            if contract_change_type:
+                ContractChange.objects.create(
+                    project=rfi.project,
+                    rfi=rfi,
+                    response_revision=response_rev,
+                    anticipated_type=contract_change_type,
+                    description=contract_change_description,
+                    created_by=member,
                 )
 
         return Response(
             RfiSerializer(rfi, context={"request": request}).data,
             status=status.HTTP_200_OK,
+        )
+
+
+class RfiRevisionList(APIView):
+    """
+    GET /api/rfis/<pk>/revisions/
+
+    Returns the ordered list of content revisions for an RFI (newest first).
+    Each revision contains the ``changes`` diff so the UI can display exactly
+    what was altered during the under-review cycle.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        revisions = rfi.revisions.select_related("revised_by").all()
+        return Response(RfiRevisionSerializer(revisions, many=True).data)
+
+
+class OfficialResponseRevisionList(APIView):
+    """
+    GET /api/rfis/<pk>/response-history/
+
+    Returns the full history of official responses for an RFI (newest first).
+    Each record includes the response body, who submitted it, when, and any
+    attachments that were uploaded with that specific revision.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        revisions = (
+            rfi.response_revisions
+            .select_related("responded_by")
+            .prefetch_related("attachments__uploaded_by")
+            .all()
+        )
+        return Response(
+            OfficialResponseRevisionSerializer(revisions, many=True, context={"request": request}).data
         )
 
 
@@ -529,6 +897,171 @@ class RfiMarkRead(APIView):
         state, _ = RfiReadState.objects.get_or_create(rfi=rfi, member=member)
         state.save()  # auto_now updates last_read_at
         return Response({"last_read_at": state.last_read_at})
+
+
+# ---------- Contract Changes ----------
+
+# Roles permitted to create / update contract change records.  These are the
+# same roles that drive the response workflow plus admins.
+CONTRACT_CHANGE_EDITOR_ROLES = {
+    Member.Role.PROJECT_DESIGNER,
+    Member.Role.SUB_CONSULTANT,
+    Member.Role.CONTRACT_ADMIN,
+    Member.Role.PROJECT_MANAGER,
+}
+
+
+def _can_edit_contract_change(member):
+    """A member may edit a contract change if they're an editor role or an admin."""
+    if member is None:
+        return False
+    if member.is_admin:
+        return True
+    return member.role in CONTRACT_CHANGE_EDITOR_ROLES
+
+
+class ContractChangeList(APIView):
+    """
+    GET /api/contract-changes/                 — global list (filterable)
+    POST /api/contract-changes/                — create a new pending change
+
+    Query params:
+      ?project=<id>     — filter by project
+      ?rfi=<id>         — filter by RFI
+      ?status=pending   — comma-separated list also accepted
+      ?type=PCN         — comma-separated anticipated_type filter
+      ?search=<term>    — searches reference, description, project, RFI
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        qs = ContractChange.objects.select_related(
+            "project", "rfi", "created_by", "issued_by", "response_revision",
+        )
+
+        project_id = request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+
+        rfi_id = request.query_params.get("rfi")
+        if rfi_id:
+            qs = qs.filter(rfi_id=rfi_id)
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            statuses = [s.strip() for s in status_filter.split(",") if s.strip()]
+            qs = qs.filter(status__in=statuses)
+
+        type_filter = request.query_params.get("type")
+        if type_filter:
+            types = [t.strip() for t in type_filter.split(",") if t.strip()]
+            qs = qs.filter(anticipated_type__in=types)
+
+        term = request.query_params.get("search")
+        if term:
+            qs = qs.filter(
+                Q(reference_number__icontains=term) |
+                Q(description__icontains=term) |
+                Q(project__project_number__icontains=term) |
+                Q(project__project_name__icontains=term) |
+                Q(rfi__rfi_number__icontains=term) |
+                Q(rfi__rfi_name__icontains=term)
+            ).distinct()
+
+        return Response(ContractChangeSerializer(qs, many=True).data)
+
+    def post(self, request):
+        member = getattr(request.user, "member", None)
+        if not _can_edit_contract_change(member):
+            return Response(
+                {"detail": "You do not have permission to create contract changes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = ContractChangeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate that the linked RFI (if any) belongs to the same project.
+        rfi = serializer.validated_data.get("rfi")
+        project = serializer.validated_data.get("project")
+        if rfi and project and rfi.project_id != project.id:
+            return Response(
+                {"rfi": ["Linked RFI must belong to the same project."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        change = serializer.save(created_by=member)
+        return Response(
+            ContractChangeSerializer(change).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ContractChangeDetail(APIView):
+    """
+    GET    /api/contract-changes/<pk>/   — fetch one record
+    PATCH  /api/contract-changes/<pk>/   — update fields (issue / cancel / edit)
+    DELETE /api/contract-changes/<pk>/   — admins only
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, pk):
+        return get_object_or_404(
+            ContractChange.objects.select_related(
+                "project", "rfi", "created_by", "issued_by", "response_revision",
+            ),
+            pk=pk,
+        )
+
+    def get(self, request, pk):
+        return Response(ContractChangeSerializer(self.get_object(pk)).data)
+
+    def patch(self, request, pk):
+        change = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        if not _can_edit_contract_change(member):
+            return Response(
+                {"detail": "You do not have permission to update contract changes."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        previous_status = change.status
+        serializer = ContractChangeSerializer(change, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        new_status = serializer.validated_data.get("status", previous_status)
+
+        # When transitioning to "issued" we stamp issued_at / issued_by and
+        # require at least the reference number so the record is auditable.
+        if new_status == ContractChange.Status.ISSUED and previous_status != ContractChange.Status.ISSUED:
+            ref = serializer.validated_data.get(
+                "reference_number", change.reference_number
+            )
+            if not ref or not ref.strip():
+                return Response(
+                    {"reference_number": ["A reference number is required to mark a change as issued."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            change = serializer.save(issued_by=member, issued_at=timezone.now())
+        else:
+            change = serializer.save()
+
+        return Response(ContractChangeSerializer(change).data)
+
+    def delete(self, request, pk):
+        change = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        # Only admins can hard-delete; everyone else must use the cancelled status.
+        if member is None or not member.is_admin:
+            return Response(
+                {"detail": "Only admins may delete contract changes. "
+                           "Use the cancelled status instead."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        change.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RfiAttachmentListCreate(APIView):

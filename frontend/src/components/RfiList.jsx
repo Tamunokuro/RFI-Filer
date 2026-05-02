@@ -49,7 +49,7 @@ const RfiList = () => {
       setFetching(true);
       try {
         const response = await api.get("/api/rfis/", {
-          params: { page, search: searchTerm, status: "open" },
+          params: { page, search: searchTerm, status: "open,submitted,under_review,responded" },
         });
         setRfis(response.data.results);
         setNext(response.data.next);
@@ -96,7 +96,7 @@ const RfiList = () => {
       let hasNext = true;
       while (hasNext) {
         const res = await api.get("/api/rfis/", {
-          params: { page: pg, search: searchTerm, status: "open" },
+          params: { page: pg, search: searchTerm, status: "open,submitted,under_review,responded" },
         });
         allRfis.push(...res.data.results);
         hasNext = !!res.data.next;
@@ -116,30 +116,28 @@ const RfiList = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return "bg-gray-100";
-
-    const today = new Date();
-    const due = new Date(dueDate);
-    const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return "bg-red-100 text-red-800";
-    if (diffDays <= 3) return "bg-yellow-100 text-yellow-800";
-
-    return "bg-green-100 text-green-800";
+  // Status label + colour for each workflow state.
+  // For "open" RFIs, urgency (overdue) takes visual priority over the label.
+  const STATUS_DISPLAY = {
+    open:         { label: "Open",         cls: "bg-green-100 text-green-800" },
+    submitted:    { label: "Submitted",    cls: "bg-blue-100 text-blue-800" },
+    under_review: { label: "Under Review", cls: "bg-amber-100 text-amber-800" },
+    responded:    { label: "Responded",    cls: "bg-purple-100 text-purple-800" },
+    closed:       { label: "Closed",       cls: "bg-gray-100 text-gray-700" },
   };
 
   const renderStatus = (rfi) => {
-    const overdue = new Date(rfi.due_date) < new Date();
+    const overdue = rfi.status === "open" && new Date(rfi.due_date) < new Date();
+    const display = STATUS_DISPLAY[rfi.status] ?? { label: rfi.status, cls: "bg-gray-100 text-gray-700" };
 
     return (
       <span
-        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-          rfi.due_date
-        )}`}
+        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+          overdue ? "bg-red-100 text-red-800" : display.cls
+        }`}
         data-testid={`rfi-status-${rfi.id}`}
       >
-        {overdue ? "Overdue" : "Active"}
+        {overdue ? "Overdue" : display.label}
       </span>
     );
   };

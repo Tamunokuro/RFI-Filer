@@ -264,8 +264,18 @@ class RetryEmailView(APIView):
     """
     POST /api/email/inbound/{id}/retry/
 
-    Re-runs the matcher against the stored body text.
-    Useful after a new project is added that should now match.
+    Re-runs the project matcher. Accepts optional override text from the
+    reviewer so that edits made in the UI (rfi_name, question) are used
+    as the matching input rather than the original stored email text.
+
+    Body (JSON — all optional)
+    --------------------------
+    {
+        "subject_hint":  "RFI – 2024-001 – Roof drainage",
+        "body_hint":     "We need clarification on the pipe size..."
+    }
+
+    If omitted, falls back to the original stored subject / body_text.
     """
 
     permission_classes = [IsAuthenticated]
@@ -279,32 +289,69 @@ class RetryEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Reconstruct a ParsedEmail from the stored DB fields for re-matching
+        # Use reviewer-supplied hints if provided, otherwise fall back to
+        # the original stored text. This lets the user guide the matcher
+        # by typing a cleaner subject or more descriptive question.
+        subject_hint = request.data.get("subject_hint", "").strip()
+        body_hint    = request.data.get("body_hint", "").strip()
+
+        match_subject = subject_hint or inbound.subject
+        match_body    = body_hint    or inbound.body_text
+
         pseudo_parsed = ParsedEmail(
             message_id=inbound.message_id,
             received_at=inbound.received_at,
             sender_name=inbound.sender_name,
             sender_email=inbound.sender_email,
-            subject=inbound.subject,
-            body_text=inbound.body_text,
+            subject=match_subject,
+            body_text=match_body,
         )
+
+        # Run diagnostics before full matching so we can report what was found
+        import re as _re
+        from rfis.models import Project as _Project
+
+        _PROJECT_NUMBER_PATTERN = _re.compile(
+            r"(?:project\s*[:#]?\s*|#\s*)?([A-Z0-9]{1,6}[-/]\d{3,6}(?:[-/][A-Z0-9]+)?)",
+            _re.IGNORECASE,
+        )
+        search_text = f"{match_subject} {match_body[:500]}"
+        extracted_numbers = list({
+            c.upper() for c in _PROJECT_NUMBER_PATTERN.findall(search_text)
+        })
+        total_projects = _Project.objects.count()
 
         match = CompositeProjectMatcher().match(pseudo_parsed)
 
-        inbound.project = match.project
-        inbound.confidence = match.confidence
+        # Persist the new match result and save the hints as parsed fields
+        inbound.project      = match.project
+        inbound.confidence   = match.confidence
         inbound.match_reason = match.reason
-        inbound.status = InboundEmail.Status.PENDING
+        inbound.status       = InboundEmail.Status.PENDING
         inbound.error_message = ""
+
+        if subject_hint:
+            inbound.parsed_rfi_name = subject_hint[:200]
+        if body_hint:
+            inbound.parsed_question = body_hint
+
         inbound.save(update_fields=[
-            "project", "confidence", "match_reason", "status", "error_message"
+            "project", "confidence", "match_reason",
+            "status", "error_message",
+            "parsed_rfi_name", "parsed_question",
         ])
 
         return Response({
             "detail": "Re-matching complete.",
             "confidence": match.confidence,
             "match_reason": match.reason,
-            "project": match.project.project_name if match.project else None,
+            "project_id": match.project.id if match.project else None,
+            "project_name": match.project.project_name if match.project else None,
+            "diagnostics": {
+                "subject_used": match_subject,
+                "extracted_numbers": extracted_numbers,
+                "total_projects_in_db": total_projects,
+            },
         })
 
 
