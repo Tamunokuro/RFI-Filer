@@ -7,6 +7,7 @@ import RfiDiscussion from "./RfiDiscussion";
 import OfficialResponsePanel from "./OfficialResponsePanel";
 import RfiAttachments from "./RfiAttachments";
 import { useAuth } from "../context/Auth";
+import toast from "../toast";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
 
@@ -16,6 +17,7 @@ const RfiDetail = () => {
   const { memberId } = useAuth();
   const [rfi, setRfi] = useState(null);
   const [error, setError] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const loadRfi = async () => {
     try {
@@ -60,6 +62,32 @@ const RfiDetail = () => {
   const designers = rfi.designers_detail?.map((m) => m.name).join(", ") || "—";
   const contractAdmins = rfi.contract_administrators_detail?.map((m) => m.name).join(", ") || "—";
 
+  const handleDownloadPdf = async () => {
+    setPdfLoading(true);
+    try {
+      const response = await api.get(`/api/rfis/${pk}/pdf/`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      // Trigger the browser's Save dialog so the user gets a local copy.
+      // The "View in RFI Filer →" link and the attachment hyperlinks inside
+      // the PDF still work after the file is saved and reopened.
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${rfi.rfi_number} - ${rfi.rfi_name}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // The download is queued synchronously on click, so the blob can be
+      // released immediately.
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to generate PDF. Please try again.");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       <div className="mx-auto w-full max-w-5xl px-6 py-8 space-y-6">
@@ -86,6 +114,41 @@ const RfiDetail = () => {
               >
                 {closed ? "Closed" : "Open"}
               </span>
+
+              {/* PDF export */}
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                title="Download as PDF"
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-600
+                           px-3 py-1 text-sm text-gray-700 dark:text-gray-300
+                           hover:bg-gray-50 dark:hover:bg-gray-700
+                           disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {pdfLoading ? (
+                  <>
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10"
+                              stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M9 13h6m-3-3v6" />
+                    </svg>
+                    Export PDF
+                  </>
+                )}
+              </button>
+
               {!closed && (
                 <button
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}/edit`)}

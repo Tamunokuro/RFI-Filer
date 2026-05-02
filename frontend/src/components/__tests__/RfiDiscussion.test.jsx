@@ -5,12 +5,12 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../../api", () => ({
   default: { get: vi.fn(), post: vi.fn() },
 }));
-vi.mock("react-toastify", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+vi.mock("../../toast", () => ({
+  default: { success: vi.fn(), error: vi.fn() },
 }));
 
 import api from "../../api";
-import { toast } from "react-toastify";
+import toast from "../../toast";
 import RfiDiscussion from "../RfiDiscussion";
 
 const sampleComments = [
