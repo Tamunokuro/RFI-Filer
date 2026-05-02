@@ -5,8 +5,8 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../../api", () => ({
   default: { post: vi.fn() },
 }));
-vi.mock("react-toastify", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+vi.mock("../../toast", () => ({
+  default: { success: vi.fn(), error: vi.fn() },
 }));
 
 const mockUseAuth = vi.fn();
@@ -19,7 +19,7 @@ vi.mock("../../context/Auth", async () => {
 });
 
 import api from "../../api";
-import { toast } from "react-toastify";
+import toast from "../../toast";
 import OfficialResponsePanel from "../OfficialResponsePanel";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────

@@ -9,8 +9,8 @@ vi.mock("../../api", () => ({
   default: { get: vi.fn(), patch: vi.fn() },
 }));
 
-vi.mock("react-toastify", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+vi.mock("../../toast", () => ({
+  default: { success: vi.fn(), error: vi.fn() },
 }));
 
 // Stub heavy sub-components so tests stay unit-level
@@ -42,7 +42,7 @@ vi.mock("../../context/Auth", () => ({
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
 import api from "../../api";
-import { toast } from "react-toastify";
+import toast from "../../toast";
 import MemberDetail from "../MemberDetail";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
