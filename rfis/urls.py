@@ -4,9 +4,9 @@ from .views import (
     ProjectListCreate, ProjectDetail,
     RfiListCreate, RfiDetail,
     RfiPdfExport, RfiTransition,
-    MemberListCreate, MemberDetail,
+    MemberListCreate, MemberDetail, MemberInvite,
     ProjectMembershipListCreate, ProjectMembershipDetail,
-    ProjectMembers, ProjectNextRfiNumber,
+    ProjectMembers, ProjectMemberDetail, ProjectNextRfiNumber,
     ChatGPTCompletion,
     MeView,
     ForgotPasswordView,
@@ -17,6 +17,7 @@ from .views import (
     RfiAttachmentListCreate, RfiAttachmentDetail,
     RfiRevisionList, OfficialResponseRevisionList,
     ContractChangeList, ContractChangeDetail,
+    NotificationList, NotificationMarkRead,
 )
 
 app_name = "rfis"
@@ -26,6 +27,7 @@ urlpatterns = [
     path("projects/", ProjectListCreate.as_view(), name="project-list"),
     path("projects/<int:pk>/", ProjectDetail.as_view(), name="project-detail"),
     path("projects/<int:pk>/members/", ProjectMembers.as_view(), name="project-members"),
+    path("projects/<int:pk>/members/<int:member_id>/", ProjectMemberDetail.as_view(), name="project-member-detail"),
     path("projects/<int:pk>/next-rfi-number/", ProjectNextRfiNumber.as_view(), name="project-next-rfi-number"),
 
     # Optional nested RFIs under a project (handy for your UI if you want it)
@@ -57,11 +59,16 @@ urlpatterns = [
 
     # ----- Members -----
     path("members/", MemberListCreate.as_view(), name="member-list"),
+    path("members/invite/", MemberInvite.as_view(), name="member-invite"),
     path("members/<int:pk>/", MemberDetail.as_view(), name="member_detail"),
 
     # ----- Project Memberships (through table) -----
     path("memberships/", ProjectMembershipListCreate.as_view(), name="membership-list"),
     path("memberships/<int:pk>/", ProjectMembershipDetail.as_view(), name="membership-detail"),
+
+    # ----- In-app Notifications -----
+    path("notifications/", NotificationList.as_view(), name="notification-list"),
+    path("notifications/mark-read/", NotificationMarkRead.as_view(), name="notification-mark-read"),
 
     # ----- AI -----
     path("ai/chat/", ChatGPTCompletion.as_view(), name="ai-chat"),

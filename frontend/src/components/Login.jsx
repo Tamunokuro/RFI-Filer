@@ -57,6 +57,7 @@ const Login = () => {
         displayName: user.member?.name || user.username,
         memberId: user.member?.id || "",
         role: user.member?.role || "",
+        isAdmin: user.member?.is_admin || false,
       });
 
       toast.success("Login successful.");

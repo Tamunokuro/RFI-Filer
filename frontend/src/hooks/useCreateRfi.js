@@ -87,7 +87,16 @@ const useCreateRfi = () => {
           api.get(`/api/projects/${projectId}/members/`),
           api.get(`/api/projects/${projectId}/next-rfi-number/`),
         ]);
-        setProjectMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
+        // Normalize ProjectMembership objects → { id, name, role } for AssigneePicker
+        const rawMembers = Array.isArray(membersRes.data) ? membersRes.data : [];
+        setProjectMembers(
+          rawMembers.map((m) => ({
+            id:         m.member?.id   ?? m.member_id,
+            name:       m.member?.name ?? "",
+            role:       m.role,
+            discipline: m.discipline   ?? "",
+          }))
+        );
         setFormData((prev) => ({
           ...prev,
           rfi_number: nextRfiRes.data.next_rfi_number ?? "",

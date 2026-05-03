@@ -60,7 +60,16 @@ const UpdateRfiForm = () => {
         // Load project members so the pickers can show names
         if (data.project) {
           const membersRes = await api.get(`/api/projects/${data.project}/members/`);
-          setProjectMembers(Array.isArray(membersRes.data) ? membersRes.data : []);
+          // Normalize ProjectMembership objects → { id, name, role } for AssigneePicker
+          const rawMembers = Array.isArray(membersRes.data) ? membersRes.data : [];
+          setProjectMembers(
+            rawMembers.map((m) => ({
+              id:         m.member?.id   ?? m.member_id,
+              name:       m.member?.name ?? "",
+              role:       m.role,
+              discipline: m.discipline   ?? "",
+            }))
+          );
         }
       } catch {
         setError("Failed to load RFI data.");

@@ -354,3 +354,47 @@ class ContractChange(models.Model):
     def __str__(self):
         ref = self.reference_number or self.anticipated_type
         return f"{ref} ({self.status}) — Project {self.project_id}"
+
+
+# ── In-app Notifications ───────────────────────────────────────────────────────
+
+class Notification(models.Model):
+    """
+    Lightweight in-app notification record.
+
+    Currently used for:
+      - project_added  : a member was added to a project team
+      - project_removed: a member was removed from a project team (future)
+
+    The bell widget polls for unread counts and fetches the full list on open.
+    """
+
+    class Verb(models.TextChoices):
+        PROJECT_ADDED   = "project_added",   "Added to project"
+        PROJECT_REMOVED = "project_removed", "Removed from project"
+        RFI_ASSIGNED    = "rfi_assigned",    "Assigned to RFI"
+        RFI_DUE_SOON    = "rfi_due_soon",    "RFI due soon"
+
+    recipient  = models.ForeignKey(
+        Member, on_delete=models.CASCADE, related_name="notifications",
+    )
+    verb       = models.CharField(max_length=50, choices=Verb.choices)
+    actor_name = models.CharField(max_length=255, blank=True)   # name of the person who triggered it
+    project    = models.ForeignKey(
+        "Project", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="notifications",
+    )
+    # Extra human-readable context stored at creation time so deleting the
+    # project/membership still allows the notification to render correctly.
+    extra      = models.JSONField(default=dict, blank=True)
+    read       = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes  = [
+            models.Index(fields=["recipient", "read"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.verb}] → {self.recipient_id} ({'' if self.read else 'un'}read)"
