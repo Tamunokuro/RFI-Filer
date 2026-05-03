@@ -13,6 +13,8 @@ import {
   ExclamationTriangleIcon,
   PencilSquareIcon,
   XMarkIcon,
+  FolderOpenIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/20/solid";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
@@ -50,7 +52,7 @@ const statusMeta = (rfi) => {
 const MemberDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { memberId, login, isAuthenticated, username, role } = useAuth();
+  const { memberId, login, isAuthenticated, username, role, isAdmin } = useAuth();
   const isOwnProfile = isAuthenticated && String(memberId) === String(id);
 
   const [member, setMember] = useState(null);
@@ -62,6 +64,10 @@ const MemberDetail = () => {
   const [rfiLoading, setRfiLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
+  // Projects the member is on
+  const [projectMemberships, setProjectMemberships] = useState([]);
+  const [activeSection, setActiveSection] = useState("rfis"); // "rfis" | "projects"
+
   // Edit profile state
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "" });
@@ -72,6 +78,14 @@ const MemberDetail = () => {
     api
       .get(`/api/members/${id}/`)
       .then((res) => setMember(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  // Fetch the projects this member belongs to
+  useEffect(() => {
+    api
+      .get("/api/memberships/", { params: { member: id } })
+      .then(({ data }) => setProjectMemberships(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [id]);
 
@@ -121,6 +135,7 @@ const MemberDetail = () => {
         displayName: updated.name,
         memberId,
         role,
+        isAdmin,
       });
       toast.success("Profile updated successfully.");
       setEditOpen(false);
@@ -311,90 +326,177 @@ const MemberDetail = () => {
           </div>
         </div>
 
-        {/* RFI list */}
+        {/* Tabbed section: RFIs | Projects */}
         <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          {/* Tab header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-wrap gap-3">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-              Assigned RFIs
-            </h3>
-            <div className="flex gap-2">
-              {["all", "open", "closed"].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
-                    filter === f
-                      ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
+            <div className="flex gap-1">
+              <button
+                onClick={() => setActiveSection("rfis")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  activeSection === "rfis"
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <BriefcaseIcon className="h-4 w-4" />
+                Assigned RFIs
+                <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-bold ${
+                  activeSection === "rfis"
+                    ? "bg-indigo-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200"
+                }`}>
+                  {count}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveSection("projects")}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  activeSection === "projects"
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <FolderOpenIcon className="h-4 w-4" />
+                Projects
+                <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-bold ${
+                  activeSection === "projects"
+                    ? "bg-indigo-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200"
+                }`}>
+                  {projectMemberships.length}
+                </span>
+              </button>
             </div>
+
+            {/* Filter chips — only shown on RFIs tab */}
+            {activeSection === "rfis" && (
+              <div className="flex gap-2">
+                {["all", "open", "closed"].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
+                      filter === f
+                        ? "bg-indigo-600 text-white"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {rfiLoading ? (
-            <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400">Loading RFIs…</p>
-          ) : filtered.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400 italic">
-              No {filter !== "all" ? filter + " " : ""}RFIs assigned to this
-              member.
-            </p>
-          ) : (
-            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-              {filtered.map((rfi) => {
-                const { label, icon, pill } = statusMeta(rfi);
-                return (
-                  <li
-                    key={rfi.id}
-                    onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
-                    className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {rfi.rfi_name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {rfi.project_number} · {rfi.project_name} · RFI{" "}
-                        {rfi.rfi_number}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-4 shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                      <span>Due {formatDate(rfi.due_date)}</span>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${pill}`}
+          {/* ── RFIs tab ── */}
+          {activeSection === "rfis" && (
+            <>
+              {rfiLoading ? (
+                <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400">Loading RFIs…</p>
+              ) : filtered.length === 0 ? (
+                <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400 italic">
+                  No {filter !== "all" ? filter + " " : ""}RFIs assigned to this member.
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {filtered.map((rfi) => {
+                    const { label, icon, pill } = statusMeta(rfi);
+                    return (
+                      <li
+                        key={rfi.id}
+                        onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
+                        className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                       >
-                        {icon}
-                        {label}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {rfi.rfi_name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {rfi.project_number} · {rfi.project_name} · RFI{" "}
+                            {rfi.rfi_number}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                          <span>Due {formatDate(rfi.due_date)}</span>
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${pill}`}
+                          >
+                            {icon}
+                            {label}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {/* Pagination */}
+              {count > 10 && (
+                <div className="flex items-center justify-center gap-4 px-5 py-4 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    disabled={!prev}
+                    className="px-3 py-1 rounded text-sm disabled:text-gray-300 dark:disabled:text-gray-600 text-indigo-600 dark:text-indigo-400 hover:underline disabled:no-underline"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Page {page}</span>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!next}
+                    className="px-3 py-1 rounded text-sm disabled:text-gray-300 dark:disabled:text-gray-600 text-indigo-600 dark:text-indigo-400 hover:underline disabled:no-underline"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Pagination */}
-          {count > 10 && (
-            <div className="flex items-center justify-center gap-4 px-5 py-4 border-t border-gray-100 dark:border-gray-700">
-              <button
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                disabled={!prev}
-                className="px-3 py-1 rounded text-sm disabled:text-gray-300 dark:disabled:text-gray-600 text-indigo-600 dark:text-indigo-400 hover:underline disabled:no-underline"
-              >
-                ← Prev
-              </button>
-              <span className="text-sm text-gray-500 dark:text-gray-400">Page {page}</span>
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={!next}
-                className="px-3 py-1 rounded text-sm disabled:text-gray-300 dark:disabled:text-gray-600 text-indigo-600 dark:text-indigo-400 hover:underline disabled:no-underline"
-              >
-                Next →
-              </button>
-            </div>
+          {/* ── Projects tab ── */}
+          {activeSection === "projects" && (
+            <>
+              {projectMemberships.length === 0 ? (
+                <p className="px-5 py-8 text-sm text-gray-500 dark:text-gray-400 italic">
+                  Not assigned to any projects.
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {projectMemberships.map((m) => (
+                    <li
+                      key={m.id}
+                      onClick={() => navigate(`/projects/${m.project}`)}
+                      className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FolderOpenIcon className="h-5 w-5 shrink-0 text-indigo-400" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {m.project_number} – {m.project_name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {m.role}
+                            {m.discipline ? ` · ${m.discipline}` : ""}
+                            {" · Joined "}
+                            {formatDate(m.joined_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {m.is_project_admin && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                            <ShieldCheckIcon className="h-3.5 w-3.5" />
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </section>
       </div>

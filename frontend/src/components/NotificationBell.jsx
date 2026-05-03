@@ -2,10 +2,14 @@
  * NotificationBell
  *
  * Self-contained bell icon + dropdown notifications panel.
- * - Polls /api/rfis/unread-summary/ every 30 s for the badge count.
- * - Fetches /api/rfis/notifications/ when the panel is opened.
- * - Clicking an item navigates to the relevant RFI detail page.
- * - "Mark all as read" calls /api/rfis/mark-all-read/ and clears state.
+ *
+ * Two notification streams are merged:
+ *   1. RFI comment activity — polled from /api/rfis/unread-summary/
+ *      and loaded from /api/rfis/notifications/ when the panel opens.
+ *   2. Project membership events — loaded from /api/notifications/
+ *      (project_added, etc.) when the panel opens; count also added to badge.
+ *
+ * "Mark all as read" clears both streams in one click.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -14,6 +18,9 @@ import {
   BellAlertIcon,
   BellSlashIcon,
   CheckCircleIcon,
+  FolderOpenIcon,
+  BriefcaseIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api";
 
@@ -31,30 +38,36 @@ function relativeTime(isoString) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const NotificationBell = () => {
-  const [isOpen, setIsOpen]             = useState(false);
-  const [totalUnread, setTotalUnread]   = useState(0);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading]           = useState(false);
+  const [isOpen, setIsOpen]               = useState(false);
+  const [totalUnread, setTotalUnread]     = useState(0);
+  const [rfiNotifs, setRfiNotifs]         = useState([]);
+  const [projectNotifs, setProjectNotifs] = useState([]);
+  const [loading, setLoading]             = useState(false);
   const containerRef = useRef(null);
   const navigate = useNavigate();
 
   // ── Poll badge count every 30 s ──────────────────────────────────────────
   useEffect(() => {
-    const fetchSummary = async () => {
+    const fetchCounts = async () => {
       try {
-        const { data } = await api.get("/api/rfis/unread-summary/");
-        const total = Object.values(data || {}).reduce(
+        const [rfiRes, projRes] = await Promise.all([
+          api.get("/api/rfis/unread-summary/").catch(() => ({ data: {} })),
+          api.get("/api/notifications/").catch(() => ({ data: [] })),
+        ]);
+
+        const rfiTotal = Object.values(rfiRes.data || {}).reduce(
           (sum, n) => sum + Number(n),
           0
         );
-        setTotalUnread(total);
+        const projTotal = Array.isArray(projRes.data) ? projRes.data.length : 0;
+        setTotalUnread(rfiTotal + projTotal);
       } catch {
         // silently ignore poll failures
       }
     };
 
-    fetchSummary();
-    const id = setInterval(fetchSummary, 30_000);
+    fetchCounts();
+    const id = setInterval(fetchCounts, 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -62,19 +75,24 @@ const NotificationBell = () => {
   useEffect(() => {
     if (!isOpen) return;
 
-    const fetchNotifications = async () => {
+    const fetchAll = async () => {
       setLoading(true);
       try {
-        const { data } = await api.get("/api/rfis/notifications/");
-        setNotifications(Array.isArray(data) ? data : []);
+        const [rfiRes, projRes] = await Promise.all([
+          api.get("/api/rfis/notifications/").catch(() => ({ data: [] })),
+          api.get("/api/notifications/").catch(() => ({ data: [] })),
+        ]);
+        setRfiNotifs(Array.isArray(rfiRes.data) ? rfiRes.data : []);
+        setProjectNotifs(Array.isArray(projRes.data) ? projRes.data : []);
       } catch {
-        setNotifications([]);
+        setRfiNotifs([]);
+        setProjectNotifs([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNotifications();
+    fetchAll();
   }, [isOpen]);
 
   // ── Close on outside click ────────────────────────────────────────────────
@@ -91,26 +109,40 @@ const NotificationBell = () => {
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleMarkAllRead = async () => {
     try {
-      await api.post("/api/rfis/mark-all-read/");
+      await Promise.all([
+        api.post("/api/rfis/mark-all-read/").catch(() => {}),
+        api.post("/api/notifications/mark-read/").catch(() => {}),
+      ]);
       setTotalUnread(0);
-      setNotifications([]);
+      setRfiNotifs([]);
+      setProjectNotifs([]);
     } catch {
       // silent
     }
   };
 
-  const handleItemClick = (notif) => {
-    // Optimistic update — remove item and shrink badge immediately so the
-    // user sees the change without waiting for the server or the 30 s poll.
-    setNotifications((prev) => prev.filter((n) => n.rfi_id !== notif.rfi_id));
+  const handleRfiClick = (notif) => {
+    setRfiNotifs((prev) => prev.filter((n) => n.rfi_id !== notif.rfi_id));
     setTotalUnread((prev) => Math.max(0, prev - notif.unread_count));
     setIsOpen(false);
-
-    // Tell the server this RFI is now read (fire-and-forget; poll corrects on failure).
     api.post(`/api/rfis/${notif.rfi_id}/mark-read/`).catch(() => {});
-
     navigate(`/rfi/${notif.rfi_id}/${notif.rfi_slug}`);
   };
+
+  const handleProjectNotifClick = (notif) => {
+    setProjectNotifs((prev) => prev.filter((n) => n.id !== notif.id));
+    setTotalUnread((prev) => Math.max(0, prev - 1));
+    setIsOpen(false);
+    api.post("/api/notifications/mark-read/").catch(() => {});
+    // Route to RFI or project depending on verb
+    if (notif.rfi_id) {
+      navigate(`/rfi/${notif.rfi_id}/${notif.rfi_slug}`);
+    } else {
+      navigate(`/projects/${notif.project_id}`);
+    }
+  };
+
+  const hasAny = rfiNotifs.length > 0 || projectNotifs.length > 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -121,8 +153,8 @@ const NotificationBell = () => {
         className="relative hover:bg-blue-100 dark:hover:bg-gray-700 text-blue-800 dark:text-blue-300 p-2 rounded-full border border-blue-200 dark:border-gray-600 shadow-sm transition duration-150"
         title={
           totalUnread > 0
-            ? `${totalUnread} unread message${totalUnread === 1 ? "" : "s"}`
-            : "No new messages"
+            ? `${totalUnread} unread notification${totalUnread === 1 ? "" : "s"}`
+            : "No new notifications"
         }
         aria-label="Notifications"
       >
@@ -147,7 +179,7 @@ const NotificationBell = () => {
                 </span>
               )}
             </h3>
-            {notifications.length > 0 && (
+            {hasAny && (
               <button
                 onClick={handleMarkAllRead}
                 className="flex items-center gap-1 text-xs text-blue-200 hover:text-white transition-colors"
@@ -165,7 +197,7 @@ const NotificationBell = () => {
               <div className="flex items-center justify-center py-14">
                 <div className="w-6 h-6 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
               </div>
-            ) : notifications.length === 0 ? (
+            ) : !hasAny ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center gap-2 py-14 text-gray-400 dark:text-gray-500">
                 <BellSlashIcon className="w-10 h-10 opacity-50" />
@@ -173,16 +205,115 @@ const NotificationBell = () => {
                   You're all caught up!
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  No new messages on your RFIs.
+                  No new notifications.
                 </p>
               </div>
             ) : (
-              /* Notification list */
               <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {notifications.map((notif) => (
+                {/* ── Project / RFI notifications (shown first) ─────── */}
+                {projectNotifs.map((notif) => {
+                  const isAssigned = notif.verb === "rfi_assigned";
+                  const isDueSoon  = notif.verb === "rfi_due_soon";
+                  const isProject  = notif.verb === "project_added";
+
+                  const dotColor = isDueSoon
+                    ? "bg-red-500"
+                    : isAssigned
+                    ? "bg-blue-500"
+                    : "bg-amber-500";
+
+                  const hoverBg = isDueSoon
+                    ? "hover:bg-red-50 dark:hover:bg-gray-700"
+                    : isAssigned
+                    ? "hover:bg-blue-50 dark:hover:bg-gray-700"
+                    : "hover:bg-amber-50 dark:hover:bg-gray-700";
+
+                  const badgeColor = isDueSoon
+                    ? "text-red-700 dark:text-red-400"
+                    : isAssigned
+                    ? "text-blue-700 dark:text-blue-400"
+                    : "text-amber-700 dark:text-amber-400";
+
+                  const BadgeIcon = isDueSoon
+                    ? ClockIcon
+                    : isAssigned
+                    ? BriefcaseIcon
+                    : FolderOpenIcon;
+
+                  const badgeLabel = isDueSoon
+                    ? `Due in ${notif.days_remaining ?? 3} days`
+                    : isAssigned
+                    ? "Assigned to RFI"
+                    : "Added to project";
+
+                  return (
+                    <li
+                      key={`proj-${notif.id}`}
+                      onClick={() => handleProjectNotifClick(notif)}
+                      className={`flex gap-3 px-4 py-3.5 ${hoverBg} cursor-pointer transition-colors`}
+                    >
+                      {/* Unread dot */}
+                      <div className="mt-1.5 shrink-0">
+                        <span className={`block w-2 h-2 rounded-full ${dotColor}`} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Type badge */}
+                        <p className={`text-[11px] font-semibold flex items-center gap-1 mb-0.5 ${badgeColor}`}>
+                          <BadgeIcon className="h-3.5 w-3.5 shrink-0" />
+                          {badgeLabel}
+                        </p>
+
+                        {/* Primary title */}
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate leading-snug">
+                          {isProject
+                            ? `${notif.project_number} – ${notif.project_name}`
+                            : `RFI #${notif.rfi_number}: ${notif.rfi_name}`}
+                        </p>
+
+                        {/* Secondary line */}
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {isProject && notif.role && (
+                            <>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Role:</span>{" "}
+                              {notif.role}
+                              {notif.actor_name && (
+                                <> · Added by <span className="font-medium text-gray-700 dark:text-gray-300">{notif.actor_name}</span></>
+                              )}
+                            </>
+                          )}
+                          {isAssigned && (
+                            <>
+                              {notif.project_number} – {notif.project_name}
+                              {notif.actor_name && (
+                                <> · Assigned by <span className="font-medium text-gray-700 dark:text-gray-300">{notif.actor_name}</span></>
+                              )}
+                            </>
+                          )}
+                          {isDueSoon && (
+                            <>
+                              {notif.project_number} – {notif.project_name}
+                              {notif.due_date && (
+                                <> · Due <span className="font-medium text-red-600 dark:text-red-400">{new Date(notif.due_date).toLocaleDateString()}</span></>
+                              )}
+                            </>
+                          )}
+                        </p>
+
+                        {/* Time */}
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                          {relativeTime(notif.created_at)}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+
+                {/* ── RFI comment notifications ──────────────────────── */}
+                {rfiNotifs.map((notif) => (
                   <li
-                    key={notif.rfi_id}
-                    onClick={() => handleItemClick(notif)}
+                    key={`rfi-${notif.rfi_id}`}
+                    onClick={() => handleRfiClick(notif)}
                     className="flex gap-3 px-4 py-3.5 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                   >
                     {/* Unread indicator dot */}
@@ -242,11 +373,17 @@ const NotificationBell = () => {
           </div>
 
           {/* Panel footer — only when there are items */}
-          {notifications.length > 0 && (
+          {hasAny && (
             <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0">
               <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
-                Showing {notifications.length} RFI
-                {notifications.length !== 1 ? "s" : ""} with new activity
+                {[
+                  projectNotifs.length > 0 &&
+                    `${projectNotifs.length} update${projectNotifs.length !== 1 ? "s" : ""}`,
+                  rfiNotifs.length > 0 &&
+                    `${rfiNotifs.length} RFI${rfiNotifs.length !== 1 ? "s" : ""} with new activity`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
           )}

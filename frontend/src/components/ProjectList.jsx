@@ -11,8 +11,11 @@ import {
   ChevronUpIcon,
   MagnifyingGlassIcon,
   ArrowTopRightOnSquareIcon,
+  PlusIcon,
 } from "@heroicons/react/20/solid";
 import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
+import { useAuth, canCreateProject } from "../context/Auth";
+import ProjectFormModal from "./ProjectFormModal";
 
 const isOverdue = (rfi) => {
   if (!rfi.due_date || rfi.status === "closed") return false;
@@ -21,11 +24,14 @@ const isOverdue = (rfi) => {
 
 const ProjectList = () => {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const canCreate = canCreateProject(role);
   const [projects, setProjects] = useState([]);
   const [openProjectIds, setOpenProjectIds] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
 
   const toggleRFIs = (projectId) => {
     setOpenProjectIds((prev) => ({
@@ -34,40 +40,41 @@ const ProjectList = () => {
     }));
   };
 
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get("/api/projects/");
+      if (Array.isArray(response.data)) {
+        setProjects(response.data);
+        setError("");
+      } else if (
+        response.data &&
+        response.data.message === "There are no projects"
+      ) {
+        setProjects([]);
+        setError("");
+      } else {
+        setError("Invalid response format from server.");
+      }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setError("Authentication failed. Please log in again.");
+        navigate("/login");
+      } else {
+        setError(err.response?.data?.message || "Failed to load projects");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN);
     if (!token) {
       navigate("/login");
       return;
     }
-
-    const fetchProjects = async () => {
-      try {
-        const response = await api.get("/api/projects/");
-        if (Array.isArray(response.data)) {
-          setProjects(response.data);
-        } else if (
-          response.data &&
-          response.data.message === "There are no projects"
-        ) {
-          setError("No projects found. Please create a project first.");
-          setProjects([]);
-        } else {
-          setError("Invalid response format from server.");
-        }
-      } catch (err) {
-        if (err.response?.status === 401) {
-          setError("Authentication failed. Please log in again.");
-          navigate("/login");
-        } else {
-          setError(err.response?.data?.message || "Failed to load projects");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const filteredProjects = projects.filter((project) =>
@@ -84,7 +91,16 @@ const ProjectList = () => {
         {/* Header with title and chat icon */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-indigo-900 dark:text-indigo-200">Project List</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {canCreate && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
+              >
+                <PlusIcon className="w-4 h-4" />
+                New project
+              </button>
+            )}
             <button
               onClick={() => navigate("/")}
               className="text-gray-600 dark:text-gray-400 hover:text-indigo-700 dark:hover:text-indigo-300"
@@ -218,9 +234,33 @@ const ProjectList = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-center italic">No Projects Found.</p>
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400 italic mb-3">No projects found.</p>
+            {canCreate && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Create your first project
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {showCreate && (
+        <ProjectFormModal
+          onClose={() => setShowCreate(false)}
+          onSaved={(p) => {
+            setShowCreate(false);
+            fetchProjects();
+            // Navigate to the new project so the user can immediately add members.
+            if (p?.id) navigate(`/projects/${p.id}`);
+          }}
+        />
+      )}
+
       <Footer />
     </div>
   );

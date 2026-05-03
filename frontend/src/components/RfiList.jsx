@@ -22,7 +22,6 @@ const formatUnreadCount = (count) => {
   return count > 999 ? "999+" : count;
 };
 
-
 const RfiList = () => {
   const navigate = useNavigate();
   const [rfis, setRfis] = useState([]);
@@ -49,7 +48,11 @@ const RfiList = () => {
       setFetching(true);
       try {
         const response = await api.get("/api/rfis/", {
-          params: { page, search: searchTerm, status: "open,submitted,under_review,responded" },
+          params: {
+            page,
+            search: searchTerm,
+            status: "open,submitted,under_review,responded",
+          },
         });
         setRfis(response.data.results);
         setNext(response.data.next);
@@ -96,7 +99,11 @@ const RfiList = () => {
       let hasNext = true;
       while (hasNext) {
         const res = await api.get("/api/rfis/", {
-          params: { page: pg, search: searchTerm, status: "open,submitted,under_review,responded" },
+          params: {
+            page: pg,
+            search: searchTerm,
+            status: "open,submitted,under_review,responded",
+          },
         });
         allRfis.push(...res.data.results);
         hasNext = !!res.data.next;
@@ -119,16 +126,26 @@ const RfiList = () => {
   // Status label + colour for each workflow state.
   // For "open" RFIs, urgency (overdue) takes visual priority over the label.
   const STATUS_DISPLAY = {
-    open:         { label: "Open",         cls: "bg-green-100 text-green-800" },
-    submitted:    { label: "Submitted",    cls: "bg-blue-100 text-blue-800" },
-    under_review: { label: "Under Review", cls: "bg-amber-100 text-amber-800" },
-    responded:    { label: "Responded",    cls: "bg-purple-100 text-purple-800" },
-    closed:       { label: "Closed",       cls: "bg-gray-100 text-gray-700" },
+    open: { label: "Open", cls: "bg-green-100 text-green-800 text-center" },
+    submitted: {
+      label: "Submitted",
+      cls: "bg-blue-100 text-blue-800 text-center",
+    },
+    under_review: {
+      label: "Under Review",
+      cls: "bg-amber-100 text-amber-800 w-full text-center justify-center",
+    },
+    responded: { label: "Responded", cls: "bg-purple-100 text-purple-800" },
+    closed: { label: "Closed", cls: "bg-gray-100 text-gray-700" },
   };
 
   const renderStatus = (rfi) => {
-    const overdue = rfi.status === "open" && new Date(rfi.due_date) < new Date();
-    const display = STATUS_DISPLAY[rfi.status] ?? { label: rfi.status, cls: "bg-gray-100 text-gray-700" };
+    const overdue =
+      rfi.status === "open" && new Date(rfi.due_date) < new Date();
+    const display = STATUS_DISPLAY[rfi.status] ?? {
+      label: rfi.status,
+      cls: "bg-gray-100 text-gray-700",
+    };
 
     return (
       <span
@@ -184,7 +201,9 @@ const RfiList = () => {
       <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
         <div className="mx-auto w-full max-w-7xl px-6 py-8">
           <Header title="RFI List" />
-          <p className="text-center text-gray-500 dark:text-gray-400 py-8">Loading RFIs...</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+            Loading RFIs...
+          </p>
         </div>
         <Footer />
       </div>
@@ -233,7 +252,11 @@ const RfiList = () => {
         </div>
 
         {/* Table */}
-        <div className={`py-3 w-full overflow-x-auto lg:overflow-visible transition-opacity duration-150 ${fetching ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+        <div
+          className={`py-3 w-full overflow-x-auto lg:overflow-visible transition-opacity duration-150 ${
+            fetching ? "opacity-40 pointer-events-none" : "opacity-100"
+          }`}
+        >
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
@@ -305,7 +328,9 @@ const RfiList = () => {
                   </td>
 
                   <td className="px-6 py-4">
-                    <AssigneeAvatars members={rfi.contract_administrators_detail || []} />
+                    <AssigneeAvatars
+                      members={rfi.contract_administrators_detail || []}
+                    />
                   </td>
 
                   <td className="px-6 py-4">{renderStatus(rfi)}</td>
@@ -322,7 +347,9 @@ const RfiList = () => {
                       projectNumber={rfi.project_number}
                       rfiNumber={rfi.rfi_number}
                       onDelete={(deletedId) => {
-                        setRfis((prev) => prev.filter((r) => r.id !== deletedId));
+                        setRfis((prev) =>
+                          prev.filter((r) => r.id !== deletedId)
+                        );
                         setCount((c) => Math.max(c - 1, 0));
                       }}
                     />
@@ -357,11 +384,17 @@ const RfiList = () => {
             </button>
 
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Page <span className="font-bold text-gray-800 dark:text-gray-200">{page}</span> of{" "}
+              Page{" "}
+              <span className="font-bold text-gray-800 dark:text-gray-200">
+                {page}
+              </span>{" "}
+              of{" "}
               <span className="font-bold text-gray-800 dark:text-gray-200">
                 {Math.ceil(count / pageSize)}
               </span>
-              <span className="ml-2 text-gray-400 dark:text-gray-500">({count} results)</span>
+              <span className="ml-2 text-gray-400 dark:text-gray-500">
+                ({count} results)
+              </span>
             </span>
 
             <button

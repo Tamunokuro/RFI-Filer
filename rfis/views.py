@@ -20,6 +20,7 @@ from .models import (
     Project, Rfi, Member, ProjectMembership,
     RfiComment, RfiReadState, RfiAttachment,
     RfiRevision, OfficialResponseRevision, ContractChange,
+    Notification,
 )
 from .serializer import (
     ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer,
@@ -271,6 +272,35 @@ class StandardPagination(PageNumberPagination):
 
 # ---------- Projects ---------
 
+# Roles permitted to create / edit projects.  Admins (is_admin=True) are
+# permitted regardless of role.
+PROJECT_EDITOR_ROLES = {
+    Member.Role.PROJECT_MANAGER,
+    Member.Role.CONTRACT_ADMIN,
+}
+
+
+def _can_create_project(member):
+    if member is None:
+        return False
+    if member.is_admin:
+        return True
+    return member.role in PROJECT_EDITOR_ROLES
+
+
+def _can_manage_project(member, project):
+    """Admins, the project's PM, or any project_admin membership can manage."""
+    if member is None:
+        return False
+    if member.is_admin:
+        return True
+    if project.project_manager_id == member.id:
+        return True
+    return ProjectMembership.objects.filter(
+        project=project, member=member, is_project_admin=True
+    ).exists()
+
+
 class ProjectListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -286,19 +316,197 @@ class ProjectListCreate(APIView):
         return Response(data)
 
     def post(self, request):
+        member = getattr(request.user, "member", None)
+        if not _can_create_project(member):
+            return Response(
+                {"detail": "Only admins, Project Managers, or Contract "
+                           "Administrators can create projects."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = ProjectSerializer(data=request.data)
         if serializer.is_valid():
             obj = serializer.save()  # project_manager is passed as member ID
+            # Auto-add the project manager (if any) as a project member +
+            # project_admin so they immediately appear on the team list.
+            if obj.project_manager_id:
+                ProjectMembership.objects.get_or_create(
+                    project=obj,
+                    member_id=obj.project_manager_id,
+                    defaults={
+                        "role": Member.Role.PROJECT_MANAGER,
+                        "is_project_admin": True,
+                    },
+                )
+            # The creator is also added as a project_admin so they retain
+            # management rights (separate from the PM if different).
+            if member and member.id != obj.project_manager_id:
+                ProjectMembership.objects.get_or_create(
+                    project=obj,
+                    member=member,
+                    defaults={
+                        "role": member.role,
+                        "is_project_admin": True,
+                    },
+                )
             return Response(ProjectSerializer(obj).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProjectMembers(APIView):
+    """
+    GET    /api/projects/<pk>/members/             — list members
+    POST   /api/projects/<pk>/members/             — add a member to the project
+    PATCH  /api/projects/<pk>/members/<member_id>/ — update a membership row
+    DELETE /api/projects/<pk>/members/<member_id>/ — remove the member
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
         project = get_object_or_404(Project.objects.prefetch_related("members"), pk=pk)
-        members = project.members.select_related("user").all()
-        return Response(MemberSerializer(members, many=True).data)
+        # Return the membership rows so the UI can show role + project-admin badge
+        memberships = (
+            ProjectMembership.objects
+            .filter(project=project)
+            .select_related("member", "member__user")
+        )
+        return Response(ProjectMembershipSerializer(memberships, many=True).data)
+
+    def post(self, request, pk):
+        project = get_object_or_404(Project, pk=pk)
+        member = getattr(request.user, "member", None)
+        if not _can_manage_project(member, project):
+            return Response(
+                {"detail": "You do not have permission to manage this project's members."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        target_member_id = request.data.get("member_id") or request.data.get("member")
+        if not target_member_id:
+            return Response({"member_id": ["This field is required."]}, status=400)
+
+        try:
+            target = Member.objects.get(pk=target_member_id)
+        except (Member.DoesNotExist, ValueError, TypeError):
+            return Response({"member_id": ["Member not found."]}, status=400)
+
+        if ProjectMembership.objects.filter(project=project, member=target).exists():
+            return Response(
+                {"detail": "This member is already on the project."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        role = request.data.get("role") or target.role
+        if role not in dict(Member.Role.choices):
+            return Response({"role": [f"'{role}' is not a valid role."]}, status=400)
+
+        discipline = request.data.get("discipline", "") or ""
+        if discipline and discipline not in dict(Member.Discipline.choices):
+            return Response({"discipline": [f"'{discipline}' is not a valid discipline."]}, status=400)
+
+        is_project_admin = bool(request.data.get("is_project_admin", False))
+
+        membership = ProjectMembership.objects.create(
+            project=project,
+            member=target,
+            role=role,
+            discipline=discipline,
+            is_project_admin=is_project_admin,
+        )
+
+        # ── In-app notification ───────────────────────────────────────────────
+        actor_name = member.name if member else "A team manager"
+        Notification.objects.create(
+            recipient=target,
+            verb=Notification.Verb.PROJECT_ADDED,
+            actor_name=actor_name,
+            project=project,
+            extra={
+                "project_number": project.project_number,
+                "project_name":   project.project_name,
+                "role":           role,
+            },
+        )
+
+        # ── Email notification ────────────────────────────────────────────────
+        if target.email:
+            frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
+            project_url  = f"{frontend_url}/projects/{project.pk}"
+            try:
+                send_mail(
+                    subject=f"You've been added to {project.project_name}",
+                    message=(
+                        f"Hi {target.name},\n\n"
+                        f"{actor_name} has added you to the project "
+                        f"\"{project.project_name}\" ({project.project_number}) "
+                        f"with the role of {role}.\n\n"
+                        f"View the project here:\n{project_url}\n\n"
+                        f"— RFI Filer"
+                    ),
+                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@rfifiler.com"),
+                    recipient_list=[target.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass  # never let email failure break the API response
+
+        return Response(
+            ProjectMembershipSerializer(membership).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ProjectMemberDetail(APIView):
+    """
+    PATCH  /api/projects/<pk>/members/<member_id>/ — update role/discipline/admin flag
+    DELETE /api/projects/<pk>/members/<member_id>/ — remove from project
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_membership(self, project_pk, member_id):
+        return get_object_or_404(
+            ProjectMembership.objects.select_related("project", "member"),
+            project_id=project_pk,
+            member_id=member_id,
+        )
+
+    def patch(self, request, pk, member_id):
+        membership = self._get_membership(pk, member_id)
+        actor = getattr(request.user, "member", None)
+        if not _can_manage_project(actor, membership.project):
+            return Response(
+                {"detail": "You do not have permission to update memberships on this project."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        for field in ("role", "discipline", "is_project_admin"):
+            if field in request.data:
+                value = request.data[field]
+                if field == "role" and value not in dict(Member.Role.choices):
+                    return Response({"role": [f"'{value}' is not a valid role."]}, status=400)
+                if field == "discipline" and value and value not in dict(Member.Discipline.choices):
+                    return Response({"discipline": [f"'{value}' is not a valid discipline."]}, status=400)
+                if field == "is_project_admin":
+                    value = bool(value)
+                setattr(membership, field, value)
+        membership.save()
+        return Response(ProjectMembershipSerializer(membership).data)
+
+    def delete(self, request, pk, member_id):
+        membership = self._get_membership(pk, member_id)
+        actor = getattr(request.user, "member", None)
+        if not _can_manage_project(actor, membership.project):
+            return Response(
+                {"detail": "You do not have permission to remove members from this project."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Don't allow removing the project's PM via this endpoint — that
+        # should be done by reassigning the PM through the project edit form.
+        if membership.project.project_manager_id == membership.member_id:
+            return Response(
+                {"detail": "Reassign the project manager before removing them from the team."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        membership.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ProjectNextRfiNumber(APIView):
     """
@@ -336,6 +544,12 @@ class ProjectDetail(APIView):
 
     def put(self, request, pk):
         proj = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        if not _can_manage_project(member, proj):
+            return Response(
+                {"detail": "You do not have permission to edit this project."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = ProjectSerializer(proj, data=request.data)
         if serializer.is_valid():
             proj = serializer.save()
@@ -344,6 +558,12 @@ class ProjectDetail(APIView):
 
     def patch(self, request, pk):
         proj = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        if not _can_manage_project(member, proj):
+            return Response(
+                {"detail": "You do not have permission to edit this project."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = ProjectSerializer(proj, data=request.data, partial=True)
         if serializer.is_valid():
             proj = serializer.save()
@@ -352,6 +572,13 @@ class ProjectDetail(APIView):
 
     def delete(self, request, pk):
         proj = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        # Hard delete is admin-only. Others must archive (not yet implemented).
+        if member is None or not member.is_admin:
+            return Response(
+                {"detail": "Only admins may delete projects."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         proj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1268,7 +1495,19 @@ class MemberListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # Optional filters used by the team directory:
+        #   ?role=Project Manager
+        #   ?search=jane
         qs = Member.objects.select_related("user")
+        role = request.query_params.get("role")
+        if role:
+            qs = qs.filter(role=role)
+        term = request.query_params.get("search")
+        if term:
+            qs = qs.filter(
+                Q(name__icontains=term) | Q(email__icontains=term) |
+                Q(company__icontains=term) | Q(user__username__icontains=term)
+            )
         return Response(MemberSerializer(qs, many=True).data)
 
     def post(self, request):
@@ -1280,17 +1519,126 @@ class MemberListCreate(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class MemberInvite(APIView):
+    """
+    POST /api/members/invite/
+
+    Admin-only. Creates a new ``User`` + ``Member`` with an unusable random
+    password and emails the recipient a password-set link (re-using the
+    existing forgot-password token flow).
+
+    Body fields:
+        name (required)
+        email (required, must be unique)
+        role (required, one of Member.Role)
+        company, discipline, phone, is_admin (all optional)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        actor = getattr(request.user, "member", None)
+        if actor is None or not actor.is_admin:
+            return Response(
+                {"detail": "Only admins can invite new members."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        name  = (request.data.get("name") or "").strip()
+        email = (request.data.get("email") or "").strip().lower()
+        role  = (request.data.get("role") or "").strip()
+        company    = (request.data.get("company") or "").strip()
+        discipline = (request.data.get("discipline") or "").strip()
+        phone      = (request.data.get("phone") or "").strip()
+        make_admin = bool(request.data.get("is_admin", False))
+
+        errors = {}
+        if not name:
+            errors["name"] = ["Name is required."]
+        if not email:
+            errors["email"] = ["Email is required."]
+        elif User.objects.filter(email__iexact=email).exists() or Member.objects.filter(email__iexact=email).exists():
+            errors["email"] = ["A user with this email already exists."]
+        if not role:
+            errors["role"] = ["Role is required."]
+        elif role not in dict(Member.Role.choices):
+            errors["role"] = [f"'{role}' is not a valid role."]
+        if discipline and discipline not in dict(Member.Discipline.choices):
+            errors["discipline"] = [f"'{discipline}' is not a valid discipline."]
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generate a unique username from the email local-part.
+        from django.utils.crypto import get_random_string
+        base_username = email.split("@", 1)[0][:30] or "user"
+        username = base_username
+        i = 1
+        while User.objects.filter(username=username).exists():
+            i += 1
+            username = f"{base_username}{i}"[:30]
+
+        with transaction.atomic():
+            user = User.objects.create(
+                username=username,
+                email=email,
+            )
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+
+            new_member = Member.objects.create(
+                user=user,
+                name=name,
+                email=email,
+                company=company,
+                discipline=discipline,
+                role=role,
+                phone=phone,
+                is_admin=make_admin,
+            )
+
+        # Send the password-set email (mirrors ForgotPasswordView).
+        try:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}"
+            send_mail(
+                subject="You have been invited to RFI Filer",
+                message=(
+                    f"Hi {name},\n\n"
+                    f"{actor.name} has invited you to RFI Filer.\n"
+                    f"Set your password to activate your account:\n{reset_link}\n"
+                ),
+                from_email=None,
+                recipient_list=[email],
+                fail_silently=True,
+            )
+            email_sent = True
+        except Exception:
+            email_sent = False
+
+        return Response(
+            {**MemberSerializer(new_member).data, "invite_email_sent": email_sent},
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class MemberDetail(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self, pk):
         return get_object_or_404(Member.objects.select_related("user"), pk=pk)
 
+    def _can_edit(self, actor, target):
+        # Admins or the member themselves
+        return actor is not None and (actor.is_admin or actor.id == target.id)
+
     def get(self, request, pk):
         return Response(MemberSerializer(self.get_object(pk)).data)
 
     def put(self, request, pk):
         member = self.get_object(pk)
+        actor = getattr(request.user, "member", None)
+        if not self._can_edit(actor, member):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
         serializer = MemberSerializer(member, data=request.data)
         if serializer.is_valid():
             member = serializer.save()
@@ -1299,14 +1647,26 @@ class MemberDetail(APIView):
 
     def patch(self, request, pk):
         member = self.get_object(pk)
-        serializer = MemberSerializer(member, data=request.data, partial=True)
+        actor = getattr(request.user, "member", None)
+        if not self._can_edit(actor, member):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        # Non-admins cannot escalate themselves to admin
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if not (actor and actor.is_admin) and "is_admin" in data:
+            data.pop("is_admin", None)
+        serializer = MemberSerializer(member, data=data, partial=True)
         if serializer.is_valid():
             member = serializer.save()
             return Response(MemberSerializer(member).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        self.get_object(pk).delete()
+        member = self.get_object(pk)
+        actor = getattr(request.user, "member", None)
+        if actor is None or not actor.is_admin:
+            return Response({"detail": "Only admins can remove members."},
+                            status=status.HTTP_403_FORBIDDEN)
+        member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1317,6 +1677,9 @@ class ProjectMembershipListCreate(APIView):
 
     def get(self, request):
         qs = ProjectMembership.objects.select_related("project", "member")
+        member_id = request.query_params.get("member")
+        if member_id:
+            qs = qs.filter(member_id=member_id)
         return Response(ProjectMembershipSerializer(qs, many=True).data)
 
     def post(self, request):
@@ -1361,6 +1724,62 @@ class ProjectMembershipDetail(APIView):
         self.get_object(pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
+
+# ── In-app Notifications ──────────────────────────────────────────────────────
+
+class NotificationList(APIView):
+    """
+    GET  /api/notifications/           — list unread notifications for the caller
+    POST /api/notifications/mark-read/ — mark all as read
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        member = getattr(request.user, "member", None)
+        if not member:
+            return Response([])
+        qs = (
+            Notification.objects
+            .filter(recipient=member, read=False)
+            .select_related("project")
+            .order_by("-created_at")
+        )
+        data = [
+            {
+                "id":             n.id,
+                "verb":           n.verb,
+                "actor_name":     n.actor_name,
+                "project_id":     n.extra.get("project_id") or n.project_id,
+                "project_number": n.extra.get("project_number", ""),
+                "project_name":   n.extra.get("project_name", ""),
+                # project_added fields
+                "role":           n.extra.get("role", ""),
+                # rfi_assigned / rfi_due_soon fields
+                "rfi_id":         n.extra.get("rfi_id"),
+                "rfi_slug":       n.extra.get("rfi_slug", ""),
+                "rfi_name":       n.extra.get("rfi_name", ""),
+                "rfi_number":     n.extra.get("rfi_number", ""),
+                "due_date":       n.extra.get("due_date", ""),
+                "days_remaining": n.extra.get("days_remaining"),
+                "created_at":     n.created_at.isoformat(),
+                "read":           n.read,
+            }
+            for n in qs
+        ]
+        return Response(data)
+
+
+class NotificationMarkRead(APIView):
+    """POST /api/notifications/mark-read/ — mark all unread notifications as read."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        member = getattr(request.user, "member", None)
+        if not member:
+            return Response({"marked": 0})
+        count = Notification.objects.filter(recipient=member, read=False).update(read=True)
+        return Response({"marked": count})
+
 
 #-----Customer Token Pair--------
 class CustomTokenObtainPairView(TokenObtainPairView):

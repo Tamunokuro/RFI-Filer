@@ -19,6 +19,7 @@ import ContractChanges from "./components/ContractChanges";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import MemberDetail from "./pages/MemberDetail";
+import TeamDirectory from "./pages/TeamDirectory";
 import EmailInbox from "./pages/EmailInbox";
 
 import Toaster from "./components/Toaster";
@@ -116,6 +117,14 @@ function AppShell() {
           element={
             <PrivateRoute>
               <MemberDetail />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/team"
+          element={
+            <PrivateRoute>
+              <TeamDirectory />
             </PrivateRoute>
           }
         />

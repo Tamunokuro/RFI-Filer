@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [displayName, setDisplayName] = useState("");
   const [memberId, setMemberId] = useState("");
   const [role, setRole] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const accessToken = localStorage.getItem(ACCESS_TOKEN);
@@ -16,27 +17,31 @@ export const AuthProvider = ({ children }) => {
     const storedDisplayName = localStorage.getItem("display_name");
     const storedMemberId = localStorage.getItem("member_id");
     const storedRole = localStorage.getItem("role");
+    const storedIsAdmin = localStorage.getItem("is_admin") === "true";
 
     setIsAuthenticated(!!accessToken);
     setUsername(storedUsername || "");
     setDisplayName(storedDisplayName || "");
     setMemberId(storedMemberId || "");
     setRole(storedRole || "");
+    setIsAdmin(storedIsAdmin);
   }, []);
 
-  const login = ({ access, refresh, username, displayName, memberId, role }) => {
+  const login = ({ access, refresh, username, displayName, memberId, role, isAdmin = false }) => {
     localStorage.setItem(ACCESS_TOKEN, access);
     localStorage.setItem(REFRESH_TOKEN, refresh);
     localStorage.setItem("username", username);
     localStorage.setItem("display_name", displayName || username);
     localStorage.setItem("member_id", memberId || "");
     localStorage.setItem("role", role || "");
+    localStorage.setItem("is_admin", String(isAdmin));
 
     setIsAuthenticated(true);
     setUsername(username);
     setDisplayName(displayName || username);
     setMemberId(memberId || "");
     setRole(role || "");
+    setIsAdmin(!!isAdmin);
   };
 
   const logout = (navigate) => {
@@ -46,12 +51,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("display_name");
     localStorage.removeItem("member_id");
     localStorage.removeItem("role");
+    localStorage.removeItem("is_admin");
 
     setIsAuthenticated(false);
     setUsername("");
     setDisplayName("");
     setMemberId("");
     setRole("");
+    setIsAdmin(false);
 
     if (navigate) {
       navigate("/login");
@@ -66,6 +73,7 @@ export const AuthProvider = ({ children }) => {
         displayName,
         memberId,
         role,
+        isAdmin,
         login,
         logout,
       }}
@@ -119,3 +127,15 @@ export const canEditRfi = (role, rfiStatus) => {
   if (DESIGNER_ROLES.includes(role)) return rfiStatus === "open";
   return rfiStatus === "open" || rfiStatus === "under_review";
 };
+
+/** Roles permitted to create new projects. */
+export const PROJECT_EDITOR_ROLES = ["Project Manager", "Contract Administrator"];
+
+/**
+ * Returns true when the user may create a new project.
+ * Note: backend additionally allows admins (is_admin=True) — a flag we don't
+ * currently store client-side, so this check is just a UI hint.  The
+ * authoritative check happens server-side.
+ */
+export const canCreateProject = (role) =>
+  PROJECT_EDITOR_ROLES.includes(role);

@@ -4,6 +4,7 @@ from .models import (
     Rfi, Project, Member, ProjectMembership, RfiComment, RfiReadState,
     RfiAttachment, RfiRevision, OfficialResponseRevision, ContractChange,
 )
+from .notifications import notify_rfi_assigned
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -173,6 +174,23 @@ class RfiSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    def _actor_name(self):
+        """Return the display name of the user making this request, or ''."""
+        request = self.context.get("request")
+        if request and hasattr(request.user, "member"):
+            return request.user.member.name
+        return ""
+
+    def _fire_assigned_notifications(self, rfi, new_members):
+        """Send rfi_assigned notifications to `new_members` (a set/list of Member)."""
+        request = self.context.get("request")
+        actor_name = self._actor_name()
+        for member in new_members:
+            # Don't notify someone who assigned themselves
+            if request and hasattr(request.user, "member") and request.user.member == member:
+                continue
+            notify_rfi_assigned(member, rfi, actor_name)
+
     def create(self, validated_data):
         designers = validated_data.pop("designers", [])
         contract_admins = validated_data.pop("contract_administrators", [])
@@ -181,26 +199,47 @@ class RfiSerializer(serializers.ModelSerializer):
             rfi.designers.set(designers)
         if contract_admins:
             rfi.contract_administrators.set(contract_admins)
+        # Notify everyone assigned at creation time
+        self._fire_assigned_notifications(rfi, list(designers) + list(contract_admins))
         return rfi
 
     def update(self, instance, validated_data):
         designers = validated_data.pop("designers", None)
         contract_admins = validated_data.pop("contract_administrators", None)
+
+        # Capture current assignees before the update
+        old_designers = set(instance.designers.all())
+        old_cas = set(instance.contract_administrators.all())
+
         rfi = super().update(instance, validated_data)
+
+        new_designers = set()
+        new_cas = set()
+
         if designers is not None:
+            new_designers = set(designers) - old_designers  # only newly added
             rfi.designers.set(designers)
         if contract_admins is not None:
+            new_cas = set(contract_admins) - old_cas
             rfi.contract_administrators.set(contract_admins)
+
+        # Notify only the newly added assignees
+        self._fire_assigned_notifications(rfi, new_designers | new_cas)
         return rfi
 
 class ProjectMembershipSerializer(serializers.ModelSerializer):
     member = MemberSerializer(read_only=True)
     member_id = serializers.PrimaryKeyRelatedField(source="member", queryset=Member.objects.all(), write_only=True)
+    project_number = serializers.CharField(source="project.project_number", read_only=True)
+    project_name   = serializers.CharField(source="project.project_name",   read_only=True)
 
     class Meta:
         model = ProjectMembership
-        fields = ["id", "project", "member", "member_id", "role", "discipline", "is_project_admin", "joined_at"]
-        read_only_fields = ["id", "joined_at", "project"]
+        fields = [
+            "id", "project", "project_number", "project_name",
+            "member", "member_id", "role", "discipline", "is_project_admin", "joined_at",
+        ]
+        read_only_fields = ["id", "joined_at", "project", "project_number", "project_name"]
 
 class ProjectSerializer(serializers.ModelSerializer):
     # annotate rfi_count in the queryset (preferred); or use a method field

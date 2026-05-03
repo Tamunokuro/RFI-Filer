@@ -7,13 +7,17 @@ import Header from "./Header";
 import Footer from "./Footer";
 import AssigneeAvatars from "./AssigneeAvatars";
 import ContractChangesPanel from "./ContractChangesPanel";
+import ProjectMembersTab from "./ProjectMembersTab";
+import ProjectFormModal from "./ProjectFormModal";
 
 import {
   ArrowLeftIcon,
   ArrowDownTrayIcon,
   MagnifyingGlassIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/20/solid";
 import { exportProjectReportToExcel } from "../utils/exportProjectReportToExcel";
+import { useAuth } from "../context/Auth";
 
 const STATUS_META = {
   open:         { label: "Open",         cls: "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300" },
@@ -33,11 +37,13 @@ const TABS = [
   { id: "active", label: "Active RFIs" },
   { id: "closed", label: "Closed RFIs" },
   { id: "changes", label: "Contract Changes" },
+  { id: "members", label: "Team" },
 ];
 
 const ProjectDetail = () => {
   const { pk } = useParams();
   const navigate = useNavigate();
+  const { memberId, role } = useAuth();
 
   const [project, setProject] = useState(null);
   const [contractChanges, setContractChanges] = useState([]);
@@ -47,26 +53,45 @@ const ProjectDetail = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
+  const [memberships, setMemberships] = useState([]);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    try {
+      const [projResp, ccResp, memResp] = await Promise.all([
+        api.get(`/api/projects/${pk}/`),
+        api.get(`/api/contract-changes/?project=${pk}`),
+        api.get(`/api/projects/${pk}/members/`),
+      ]);
+      setProject(projResp.data);
+      setContractChanges(Array.isArray(ccResp.data) ? ccResp.data : []);
+      setMemberships(Array.isArray(memResp.data) ? memResp.data : []);
+      setError("");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load project.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      try {
-        const [projResp, ccResp] = await Promise.all([
-          api.get(`/api/projects/${pk}/`),
-          api.get(`/api/contract-changes/?project=${pk}`),
-        ]);
-        setProject(projResp.data);
-        setContractChanges(ccResp.data);
-        setError("");
-      } catch (err) {
-        setError(err.response?.data?.detail || "Failed to load project.");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pk]);
+
+  // Permission helper — admin or PM or project_admin can manage this project.
+  // We approximate by checking project_manager_id and the membership rows we
+  // already loaded; backend remains the source of truth.
+  const myMembership = memberships.find((m) => String(m.member?.id) === String(memberId));
+  const canManage =
+    project &&
+    (
+      (myMembership && myMembership.is_project_admin) ||
+      String(project.project_manager) === String(memberId) ||
+      role === "Project Manager" || // backend may still reject if not on project; UI hint only
+      role === "Contract Administrator"
+    );
 
   const allRfis = project?.rfis || [];
   const activeRfis = useMemo(
@@ -146,6 +171,7 @@ const ProjectDetail = () => {
     active: activeRfis.length,
     closed: closedRfis.length,
     changes: contractChanges.length,
+    members: memberships.length,
   };
 
   return (
@@ -171,15 +197,28 @@ const ProjectDetail = () => {
                 {project.project_number} · PM: {project.project_manager_name || "—"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={exporting}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-            >
-              <ArrowDownTrayIcon className="h-4 w-4" />
-              {exporting ? "Generating…" : "Export Project Report"}
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setEditingProject(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  data-testid="edit-project-btn"
+                >
+                  <PencilSquareIcon className="h-4 w-4" />
+                  Edit project
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                {exporting ? "Generating…" : "Export Project Report"}
+              </button>
+            </div>
           </div>
 
           <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -226,24 +265,28 @@ const ProjectDetail = () => {
           </nav>
         </div>
 
-        {/* Search bar */}
-        <div className="relative max-w-md">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder={
-              activeTab === "changes"
-                ? "Search contract changes…"
-                : "Search RFI number, name, designer…"
-            }
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+        {/* Search bar — hidden on the team tab (tab has its own controls) */}
+        {activeTab !== "members" && (
+          <div className="relative max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder={
+                activeTab === "changes"
+                  ? "Search contract changes…"
+                  : "Search RFI number, name, designer…"
+              }
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
+        )}
 
         {/* Tab content */}
-        {activeTab === "changes" ? (
+        {activeTab === "members" ? (
+          <ProjectMembersTab projectId={project.id} canManage={!!canManage} />
+        ) : activeTab === "changes" ? (
           <ContractChangesPanel projectId={project.id} />
         ) : (
           <div className="space-y-2">
@@ -307,6 +350,18 @@ const ProjectDetail = () => {
           </div>
         )}
       </div>
+
+      {editingProject && (
+        <ProjectFormModal
+          project={project}
+          onClose={() => setEditingProject(false)}
+          onSaved={(updated) => {
+            setEditingProject(false);
+            setProject(updated);
+          }}
+        />
+      )}
+
       <Footer />
     </div>
   );
