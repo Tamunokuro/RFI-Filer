@@ -146,6 +146,31 @@ const CreateRfiForm = () => {
             </select>
           </div>
 
+          {/* Priority */}
+          <div>
+            <label
+              htmlFor="priority"
+              className="block text-sm/6 font-medium text-gray-900 dark:text-gray-100"
+            >
+              Priority
+            </label>
+            <select
+              name="priority"
+              id="priority"
+              value={formData.priority}
+              onChange={handleChange}
+              className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+            >
+              <option value="low">🟢 Low</option>
+              <option value="medium">🔵 Medium</option>
+              <option value="high">🟠 High</option>
+              <option value="critical">🔴 Critical</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+              How urgently does this RFI need a response?
+            </p>
+          </div>
+
           {/* Dates */}
           <div className="flex gap-4">
             <DateInput
@@ -205,6 +230,89 @@ const CreateRfiForm = () => {
               className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pl-3 py-2"
               placeholder="Suggest a possible solution or approach..."
             />
+          </div>
+
+          {/* ── Drawing & Spec Reference ─────────────────────────────── */}
+          <div className="rounded-xl border border-indigo-100 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20 p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300 uppercase tracking-wide">
+                References <span className="ml-1 text-xs font-normal text-gray-400 normal-case">(optional)</span>
+              </h3>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                Link this RFI to a specific drawing or specification section.
+              </p>
+            </div>
+
+            {/* Drawing row */}
+            <div>
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">Drawing</p>
+              <div className="grid grid-cols-5 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Drawing Number</label>
+                  <input
+                    type="text"
+                    name="drawing_number"
+                    value={formData.drawing_number}
+                    onChange={handleChange}
+                    placeholder="e.g. A-101"
+                    className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Revision</label>
+                  <input
+                    type="text"
+                    name="drawing_revision"
+                    value={formData.drawing_revision}
+                    onChange={handleChange}
+                    placeholder="e.g. Rev B"
+                    className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Drawing Title</label>
+                  <input
+                    type="text"
+                    name="drawing_title"
+                    value={formData.drawing_title}
+                    onChange={handleChange}
+                    placeholder="e.g. Ground Floor Plan"
+                    className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Spec row */}
+            <div>
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">Specification</p>
+              <div className="grid grid-cols-5 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Section Number
+                  </label>
+                  <input
+                    type="text"
+                    name="spec_section"
+                    value={formData.spec_section}
+                    onChange={handleChange}
+                    placeholder="e.g. 03 30 00"
+                    className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Section Title</label>
+                  <input
+                    type="text"
+                    name="spec_section_title"
+                    value={formData.spec_section_title}
+                    onChange={handleChange}
+                    placeholder="e.g. Cast-in-Place Concrete"
+                    className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Attachments */}

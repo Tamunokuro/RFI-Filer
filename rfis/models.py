@@ -88,6 +88,12 @@ class Rfi(models.Model):
         RESPONDED    = "responded",    "Responded"
         CLOSED       = "closed",       "Closed"
 
+    class Priority(models.TextChoices):
+        LOW      = "low",      "Low"
+        MEDIUM   = "medium",   "Medium"
+        HIGH     = "high",     "High"
+        CRITICAL = "critical", "Critical"
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="rfis")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rfis")
     trade = models.CharField(max_length=10, default="M")
@@ -105,8 +111,29 @@ class Rfi(models.Model):
     due_date = models.DateField()
     question = models.TextField(blank=True)
     proposed_solution = models.TextField(blank=True)
+
+    # ── Drawing reference ─────────────────────────────────────────────────────
+    drawing_number   = models.CharField(max_length=50,  blank=True,
+        help_text="Sheet/drawing number referenced by this RFI, e.g. A-101, E-104.")
+    drawing_revision = models.CharField(max_length=20,  blank=True,
+        help_text="Drawing revision at the time of the RFI, e.g. Rev B, IFC.")
+    drawing_title    = models.CharField(max_length=200, blank=True,
+        help_text="Short description of the drawing, e.g. Ground Floor Plan.")
+
+    # ── Specification reference ───────────────────────────────────────────────
+    spec_section       = models.CharField(max_length=20,  blank=True,
+        help_text="CSI MasterFormat section number, e.g. 03 30 00.")
+    spec_section_title = models.CharField(max_length=200, blank=True,
+        help_text="Section title, e.g. Cast-in-Place Concrete.")
+
     slug = models.SlugField(max_length=140, unique=True, blank=True)
 
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+        help_text="Urgency level for this RFI: Low, Medium, High, or Critical.",
+    )
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.OPEN)
     official_response = models.TextField(blank=True)
     responded_by = models.ForeignKey(

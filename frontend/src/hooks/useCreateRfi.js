@@ -12,6 +12,7 @@ const useCreateRfi = () => {
     project_number: "",        // display only
     project_name: "",          // display only
     project_manager: "",       // display only
+    priority: "medium",
     trade: "M",
     rfi_name: "",
     rfi_number: "",
@@ -21,6 +22,12 @@ const useCreateRfi = () => {
     due_date: "",
     question: "",
     proposed_solution: "",
+    // Drawing & spec references (all optional)
+    drawing_number:    "",
+    drawing_revision:  "",
+    drawing_title:     "",
+    spec_section:      "",
+    spec_section_title: "",
     attachments: null,         // FileList or Array from <input type="file" multiple>
   };
 
@@ -174,6 +181,7 @@ const useCreateRfi = () => {
     // Send only what the backend expects
     const payload = {
       project: formData.project,
+      priority: formData.priority,
       trade: formData.trade,
       rfi_name: formData.rfi_name,
       rfi_number: formData.rfi_number,
@@ -183,6 +191,11 @@ const useCreateRfi = () => {
       due_date: formData.due_date,
       question: formData.question,
       proposed_solution: formData.proposed_solution,
+      drawing_number:    formData.drawing_number    || "",
+      drawing_revision:  formData.drawing_revision  || "",
+      drawing_title:     formData.drawing_title     || "",
+      spec_section:      formData.spec_section      || "",
+      spec_section_title: formData.spec_section_title || "",
     };
 
     try {
