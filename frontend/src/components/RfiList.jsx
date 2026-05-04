@@ -123,6 +123,23 @@ const RfiList = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Priority badge colours
+  const PRIORITY_DISPLAY = {
+    low:      { label: "Low",      cls: "bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300" },
+    medium:   { label: "Medium",   cls: "bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300" },
+    high:     { label: "High",     cls: "bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300" },
+    critical: { label: "Critical", cls: "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300" },
+  };
+
+  const renderPriority = (rfi) => {
+    const display = PRIORITY_DISPLAY[rfi.priority] ?? PRIORITY_DISPLAY.medium;
+    return (
+      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${display.cls}`}>
+        {display.label}
+      </span>
+    );
+  };
+
   // Status label + colour for each workflow state.
   // For "open" RFIs, urgency (overdue) takes visual priority over the label.
   const STATUS_DISPLAY = {
@@ -251,36 +268,27 @@ const RfiList = () => {
           </button>
         </div>
 
-        {/* Table */}
+        {/* Table — always scroll horizontally so it never escapes the max-w-7xl
+            container (which would push the footer out of alignment) */}
         <div
-          className={`py-3 w-full overflow-x-auto lg:overflow-visible transition-opacity duration-150 ${
+          className={`py-3 w-full overflow-x-auto transition-opacity duration-150 ${
             fetching ? "opacity-40 pointer-events-none" : "opacity-100"
           }`}
         >
-          <table className="w-full">
+          <table className="w-full min-w-[64rem] table-fixed">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                {[
-                  "Project Number",
-                  "RFI Number",
-                  "Messages",
-                  "RFI Name",
-                  "Project",
-                  "Trade",
-                  "Received",
-                  "Due Date",
-                  "Designers",
-                  "Contract Administrators",
-                  "Status",
-                  "Actions",
-                ].map((heading, index) => (
-                  <th
-                    key={index}
-                    className="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-                  >
-                    {heading}
-                  </th>
-                ))}
+                <th className="w-[11%] px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Project</th>
+                <th className="w-[6%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">RFI #</th>
+                <th className="w-[4%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Msgs</th>
+                <th className="w-[17%] px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">RFI Name</th>
+                <th className="w-[6%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Trade</th>
+                <th className="w-[7%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due</th>
+                <th className="w-[11%] px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Designers</th>
+                <th className="w-[11%] px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">CAs</th>
+                <th className="w-[8%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                <th className="w-[8%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
+                <th className="w-[5%]  px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Del</th>
               </tr>
             </thead>
 
@@ -291,52 +299,52 @@ const RfiList = () => {
                   className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                   onClick={() => navigate(`/rfi/${rfi.id}/${rfi.slug}`)}
                 >
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {rfi.project_number}
+                  {/* Project number + name stacked */}
+                  <td className="px-3 py-3">
+                    <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {rfi.project_number}
+                    </span>
+                    <span className="block text-xs text-gray-400 dark:text-gray-500 truncate">
+                      {rfi.project_name}
+                    </span>
                   </td>
 
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                     {rfi.rfi_number}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
                     {renderMessageIndicator(rfi.id)}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 truncate max-w-0">
                     {rfi.rfi_name}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    {rfi.project_name}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {rfi.trade}
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(rfi.received_date)}
-                  </td>
-
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {formatDate(rfi.due_date)}
                   </td>
 
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3">
                     <AssigneeAvatars members={rfi.designers_detail || []} />
                   </td>
 
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3">
                     <AssigneeAvatars
                       members={rfi.contract_administrators_detail || []}
                     />
                   </td>
 
-                  <td className="px-6 py-4">{renderStatus(rfi)}</td>
+                  <td className="px-3 py-3">{renderStatus(rfi)}</td>
+
+                  <td className="px-3 py-3">{renderPriority(rfi)}</td>
 
                   <td
-                    className="px-4 py-4"
+                    className="px-3 py-3"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <RFiDeleteButton

@@ -145,7 +145,11 @@ class RfiSerializer(serializers.ModelSerializer):
             "author", "trade", "rfi_name", "rfi_number",
             "designers", "designers_detail",
             "contract_administrators", "contract_administrators_detail",
-            "received_date", "due_date", "question", "proposed_solution", "slug",
+            "received_date", "due_date", "question", "proposed_solution",
+            "drawing_number", "drawing_revision", "drawing_title",
+            "spec_section", "spec_section_title",
+            "priority",
+            "slug",
             "status", "official_response", "responded_by", "responded_by_name",
             "responded_at", "closed_at", "official_response_attachments",
         ]

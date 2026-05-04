@@ -13,6 +13,14 @@ import toast from "../toast";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
 
+// ── Priority display config ────────────────────────────────────────────────────
+const PRIORITY_META = {
+  low:      { label: "Low",      cls: "bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300" },
+  medium:   { label: "Medium",   cls: "bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300" },
+  high:     { label: "High",     cls: "bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300" },
+  critical: { label: "Critical", cls: "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 animate-pulse" },
+};
+
 // ── Status display config ──────────────────────────────────────────────────────
 const STATUS_META = {
   open:         { label: "Open",         cls: "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300" },
@@ -80,7 +88,8 @@ const RfiDetail = () => {
 
   const closed = rfi.status === "closed";
   const editAllowed = canEditRfi(role, rfi.status);
-  const statusMeta = STATUS_META[rfi.status] ?? { label: rfi.status, cls: "" };
+  const statusMeta   = STATUS_META[rfi.status]     ?? { label: rfi.status,    cls: "" };
+  const priorityMeta = PRIORITY_META[rfi.priority] ?? PRIORITY_META.medium;
   const nextStep = NEXT_STEP[rfi.status] ?? null;
   const designers = rfi.designers_detail?.map((m) => m.name).join(", ") || "—";
   const contractAdmins = rfi.contract_administrators_detail?.map((m) => m.name).join(", ") || "—";
@@ -140,6 +149,14 @@ const RfiDetail = () => {
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
+              {/* Priority badge */}
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${priorityMeta.cls}`}
+                data-testid="rfi-priority-badge"
+              >
+                {priorityMeta.label}
+              </span>
+
               {/* Status badge */}
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.cls}`}
@@ -251,6 +268,66 @@ const RfiDetail = () => {
               </div>
             )}
           </dl>
+
+          {/* ── References callout — only rendered when at least one field is set ── */}
+          {(rfi.drawing_number || rfi.spec_section) && (
+            <div className="mt-5 rounded-lg border border-indigo-100 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 px-5 py-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-500 dark:text-indigo-400 mb-3">
+                References
+              </p>
+              <div className="flex flex-wrap gap-6">
+                {/* Drawing reference */}
+                {rfi.drawing_number && (
+                  <div className="flex items-start gap-2.5">
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-100 dark:bg-indigo-900/60">
+                      <svg className="h-4 w-4 text-indigo-600 dark:text-indigo-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Drawing</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {rfi.drawing_number}
+                        {rfi.drawing_revision && (
+                          <span className="ml-1.5 text-xs font-normal text-gray-500 dark:text-gray-400">
+                            {rfi.drawing_revision}
+                          </span>
+                        )}
+                      </p>
+                      {rfi.drawing_title && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{rfi.drawing_title}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Divider when both are present */}
+                {rfi.drawing_number && rfi.spec_section && (
+                  <div className="hidden sm:block w-px self-stretch bg-indigo-200 dark:bg-indigo-800" />
+                )}
+
+                {/* Spec section reference */}
+                {rfi.spec_section && (
+                  <div className="flex items-start gap-2.5">
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-100 dark:bg-indigo-900/60">
+                      <svg className="h-4 w-4 text-indigo-600 dark:text-indigo-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Specification</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        {rfi.spec_section}
+                      </p>
+                      {rfi.spec_section_title && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{rfi.spec_section_title}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Revision history — only visible when revisions exist */}

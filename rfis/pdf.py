@@ -61,6 +61,13 @@ TRADE_LABELS: dict[str, str] = {
     "P": "Architectural",
 }
 
+PRIORITY_LABELS: dict[str, str] = {
+    "low":      "Low",
+    "medium":   "Medium",
+    "high":     "High",
+    "critical": "Critical",
+}
+
 
 def _fmt_date(value) -> str:
     """Format a date / datetime / None to a readable string."""
@@ -324,8 +331,9 @@ def build_rfi_pdf(
     # ── ③ Project & RFI details grid ─────────────────────────────────────────
     story += _section_header("PROJECT & RFI DETAILS", styles)
 
-    trade_label = TRADE_LABELS.get(rfi.trade, rfi.trade or "—")
-    status_label = "Closed" if rfi.status == "closed" else "Open"
+    trade_label    = TRADE_LABELS.get(rfi.trade, rfi.trade or "—")
+    status_label   = "Closed" if rfi.status == "closed" else "Open"
+    priority_label = PRIORITY_LABELS.get(getattr(rfi, "priority", "medium"), "Medium")
 
     def cell(label: str, value: str):
         return [
@@ -333,10 +341,12 @@ def build_rfi_pdf(
             Paragraph(value or "—", styles["table_value"]),
         ]
 
+    # 4 pairs × 2 columns = 8 sub-columns
     details_data = [
         [
             *cell("PROJECT NUMBER",  rfi.project.project_number),
             *cell("STATUS",          status_label),
+            *cell("PRIORITY",        priority_label),
             *cell("TRADE",           trade_label),
         ],
         [
@@ -344,14 +354,15 @@ def build_rfi_pdf(
                   rfi.project.project_manager.name if rfi.project.project_manager else "—"),
             *cell("DATE RECEIVED",   _fmt_date(rfi.received_date)),
             *cell("DATE DUE",        _fmt_date(rfi.due_date)),
+            Paragraph("", styles["table_label"]),
+            Paragraph("", styles["table_value"]),
         ],
     ]
 
-    col_w = (doc.width) / 6   # 6 sub-columns (label + value × 3)
+    col_w = doc.width / 8   # 8 sub-columns (label + value × 4)
     details_table = Table(
         details_data,
-        colWidths=[col_w * 1.1, col_w * 0.9, col_w * 1.1,
-                   col_w * 0.9, col_w * 1.1, col_w * 0.9],
+        colWidths=[col_w * 1.15, col_w * 0.85] * 4,
     )
     details_table.setStyle(TableStyle([
         ("BACKGROUND",    (0, 0), (-1, 0), SLATE_BG),
@@ -391,7 +402,47 @@ def build_rfi_pdf(
     ]))
     story.append(parties_table)
 
-    # ── ⑤ Question ────────────────────────────────────────────────────────────
+    # ── ⑤ References (drawing + spec) — only when at least one is set ─────────
+    has_drawing = bool(rfi.drawing_number)
+    has_spec    = bool(rfi.spec_section)
+
+    if has_drawing or has_spec:
+        story += _section_header("REFERENCES", styles)
+
+        ref_rows = []
+        if has_drawing:
+            drawing_str = rfi.drawing_number
+            if rfi.drawing_revision:
+                drawing_str += f"  {rfi.drawing_revision}"
+            if rfi.drawing_title:
+                drawing_str += f"  —  {rfi.drawing_title}"
+            ref_rows.append([
+                Paragraph("DRAWING", styles["table_label"]),
+                Paragraph(drawing_str, styles["table_value"]),
+            ])
+        if has_spec:
+            spec_str = rfi.spec_section
+            if rfi.spec_section_title:
+                spec_str += f"  —  {rfi.spec_section_title}"
+            ref_rows.append([
+                Paragraph("SPECIFICATION", styles["table_label"]),
+                Paragraph(spec_str, styles["table_value"]),
+            ])
+
+        ref_table = Table(ref_rows, colWidths=["28%", "72%"])
+        ref_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (0, -1), SLATE_BG),
+            ("BACKGROUND",    (1, 0), (1, -1), WHITE),
+            ("LINEBELOW",     (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ]))
+        story.append(ref_table)
+
+    # ── ⑥ Question ────────────────────────────────────────────────────────────
     if rfi.question:
         story += _section_header("QUESTION", styles)
         story.append(_body_para(rfi.question, styles))
