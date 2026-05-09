@@ -108,7 +108,7 @@ export default function Toaster() {
   return (
     <div
       aria-label="Notifications"
-      className="fixed top-6 inset-x-0 z-50 flex flex-col items-center gap-2 pointer-events-none"
+      className="fixed top-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none"
     >
       {items.map((item) => (
         <div key={item.id} className="pointer-events-auto">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../api";
 import Footer from "./Footer";
 import Header from "./Header";
@@ -41,6 +41,8 @@ const NEXT_STEP = {
 const RfiDetail = () => {
   const { pk } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetCommentId = searchParams.get("comment") ? Number(searchParams.get("comment")) : null;
   const { memberId, role } = useAuth();
   const [rfi, setRfi] = useState(null);
   const [error, setError] = useState("");
@@ -344,7 +346,13 @@ const RfiDetail = () => {
         {/* Contract Changes — only renders when this RFI has any */}
         <ContractChangesPanel rfiId={rfi.id} hideWhenEmpty />
 
-        <RfiDiscussion rfiId={rfi.id} isClosed={closed} onActivity={() => {}} />
+        <RfiDiscussion
+          rfiId={rfi.id}
+          projectId={rfi.project}
+          targetCommentId={targetCommentId}
+          isClosed={closed}
+          onActivity={() => {}}
+        />
       </div>
       <Footer />
     </div>

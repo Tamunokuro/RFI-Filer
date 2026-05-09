@@ -15,17 +15,17 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes, force_str
 from django.conf import settings
 
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import (
     Project, Rfi, Member, ProjectMembership,
-    RfiComment, RfiReadState, RfiAttachment,
+    RfiComment, RfiReadState, RfiAttachment, RfiCommentAttachment,
     RfiRevision, OfficialResponseRevision, ContractChange,
     Notification,
 )
 from .serializer import (
     ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer,
-    RfiCommentSerializer, OfficialResponseSerializer, RfiAttachmentSerializer,
+    RfiCommentSerializer, RfiCommentAttachmentSerializer, OfficialResponseSerializer, RfiAttachmentSerializer,
     MemberProfileUpdateSerializer, RfiRevisionSerializer, OfficialResponseRevisionSerializer,
     ContractChangeSerializer,
 )
@@ -1049,14 +1049,17 @@ class RfiTransition(APIView):
 
 class RfiCommentListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    # JSONParser for text-only posts; Multipart/Form for posts that include files
+    parser_classes     = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request, pk):
         rfi = get_object_or_404(Rfi, pk=pk)
-        qs = rfi.comments.select_related("author").all()
-        return Response(RfiCommentSerializer(qs, many=True).data)
+        ctx = {"request": request}
+        qs  = rfi.comments.select_related("author").prefetch_related("attachments").all()
+        return Response(RfiCommentSerializer(qs, many=True, context=ctx).data)
 
     def post(self, request, pk):
-        rfi = get_object_or_404(Rfi, pk=pk)
+        rfi    = get_object_or_404(Rfi, pk=pk)
         member = getattr(request.user, "member", None)
         if member is None:
             return Response(
@@ -1068,16 +1071,86 @@ class RfiCommentListCreate(APIView):
                 {"detail": "This RFI is closed and no longer accepts new comments."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        serializer = RfiCommentSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        files = request.FILES.getlist("files")
+        body  = (request.data.get("body") or "").strip()
+
+        if not body and not files:
+            return Response(
+                {"body": ["Please enter a message or attach a file."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         comment = RfiComment.objects.create(
             rfi=rfi,
             author=member,
-            body=serializer.validated_data["body"],
+            body=body,
             is_official_response=False,
         )
-        return Response(RfiCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+
+        # Save allowed attachments
+        for f in files:
+            if f.content_type not in ALLOWED_ATTACHMENT_CONTENT_TYPES:
+                continue
+            if f.size > MAX_ATTACHMENT_SIZE_BYTES:
+                continue
+            RfiCommentAttachment.objects.create(
+                comment=comment,
+                file=f,
+                original_filename=f.name,
+                content_type=f.content_type or "",
+                size=f.size,
+            )
+
+        _notify_mentions(comment, rfi, author=member)
+        ctx = {"request": request}
+        return Response(RfiCommentSerializer(comment, context=ctx).data, status=status.HTTP_201_CREATED)
+
+
+def _notify_mentions(comment, rfi, author):
+    """
+    Parse ``@Member Name`` patterns from a comment body and create a
+    Notification(verb=MENTIONED) for each matching project member.
+
+    Detection strategy: for each member of the RFI's project, check whether
+    ``@<name>`` appears verbatim in the body.  This is intentionally exact so
+    that the frontend's insertion of ``@Full Name `` works reliably, while still
+    being O(members) rather than requiring a complex NLP parse.
+    """
+    body = comment.body
+    if "@" not in body:
+        return
+
+    project_members = (
+        Member.objects
+        .filter(projects=rfi.project)
+        .exclude(pk=author.pk)   # don't notify yourself
+        .select_related()
+    )
+
+    notified_pks = set()
+    for m in project_members:
+        if m.pk in notified_pks:
+            continue
+        if f"@{m.name}" in body:
+            notified_pks.add(m.pk)
+            Notification.objects.create(
+                recipient=m,
+                verb=Notification.Verb.MENTIONED,
+                actor_name=author.name,
+                project=rfi.project,
+                extra={
+                    "rfi_id":          rfi.id,
+                    "rfi_slug":        rfi.slug,
+                    "rfi_number":      rfi.rfi_number,
+                    "rfi_name":        rfi.rfi_name,
+                    "project_id":      rfi.project_id,
+                    "project_number":  rfi.project.project_number,
+                    "project_name":    rfi.project.project_name,
+                    "comment_id":      comment.id,
+                    "comment_preview": body[:120],
+                },
+            )
 
 
 class RfiOfficialResponse(APIView):
@@ -1933,6 +2006,9 @@ class NotificationList(APIView):
                 "rfi_number":     n.extra.get("rfi_number", ""),
                 "due_date":       n.extra.get("due_date", ""),
                 "days_remaining": n.extra.get("days_remaining"),
+                # mentioned fields
+                "comment_id":      n.extra.get("comment_id"),
+                "comment_preview": n.extra.get("comment_preview", ""),
                 "created_at":     n.created_at.isoformat(),
                 "read":           n.read,
             }

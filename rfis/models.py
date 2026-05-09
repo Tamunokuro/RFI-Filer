@@ -220,6 +220,19 @@ class RfiComment(models.Model):
         return f"Comment by {author_name} on RFI {self.rfi_id}"
 
 
+class RfiCommentAttachment(models.Model):
+    """File or media attached to a single discussion comment."""
+    comment          = models.ForeignKey(RfiComment, on_delete=models.CASCADE, related_name="attachments")
+    file             = models.FileField(upload_to="comment_attachments/%Y/%m/")
+    original_filename = models.CharField(max_length=255)
+    content_type     = models.CharField(max_length=100, blank=True)
+    size             = models.PositiveIntegerField(default=0)   # bytes
+    uploaded_at      = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.original_filename} on comment {self.comment_id}"
+
+
 class RfiReadState(models.Model):
     """Tracks when a member last viewed an RFI's discussion.
 
@@ -405,6 +418,7 @@ class Notification(models.Model):
         PROJECT_REMOVED = "project_removed", "Removed from project"
         RFI_ASSIGNED    = "rfi_assigned",    "Assigned to RFI"
         RFI_DUE_SOON    = "rfi_due_soon",    "RFI due soon"
+        MENTIONED       = "mentioned",       "Mentioned in comment"
 
     recipient  = models.ForeignKey(
         Member, on_delete=models.CASCADE, related_name="notifications",

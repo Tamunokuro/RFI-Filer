@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import (
     Rfi, Project, Member, ProjectMembership, RfiComment, RfiReadState,
     RfiAttachment, RfiRevision, OfficialResponseRevision, ContractChange,
+    RfiCommentAttachment,
 )
 from .notifications import notify_rfi_assigned
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -284,26 +285,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
+class RfiCommentAttachmentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RfiCommentAttachment
+        fields = ["id", "file_url", "original_filename", "content_type", "size", "uploaded_at"]
+        read_only_fields = ["id", "file_url", "original_filename", "content_type", "size", "uploaded_at"]
+
+    def get_file_url(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get("request")
+        url = obj.file.url
+        return request.build_absolute_uri(url) if request else url
+
+
 class RfiCommentSerializer(serializers.ModelSerializer):
-    author_name = serializers.CharField(source="author.name", read_only=True, default="")
-    author_role = serializers.CharField(source="author.role", read_only=True, default="")
+    author_name    = serializers.CharField(source="author.name",    read_only=True, default="")
+    author_role    = serializers.CharField(source="author.role",    read_only=True, default="")
     author_company = serializers.CharField(source="author.company", read_only=True, default="")
+    attachments    = RfiCommentAttachmentSerializer(many=True, read_only=True)
+
+    # body is optional when files are attached — view enforces "body or files"
+    body = serializers.CharField(required=False, allow_blank=True, default="")
 
     class Meta:
         model = RfiComment
         fields = [
             "id", "rfi", "author", "author_name", "author_role", "author_company",
-            "body", "is_official_response", "created_at", "updated_at",
+            "body", "is_official_response", "created_at", "updated_at", "attachments",
         ]
         read_only_fields = [
             "id", "rfi", "author", "author_name", "author_role", "author_company",
-            "is_official_response", "created_at", "updated_at",
+            "is_official_response", "created_at", "updated_at", "attachments",
         ]
-
-    def validate_body(self, value):
-        if not value or not value.strip():
-            raise serializers.ValidationError("Comment body cannot be empty.")
-        return value
 
 
 class RfiAttachmentSerializer(serializers.ModelSerializer):
