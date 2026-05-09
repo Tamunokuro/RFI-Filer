@@ -20,6 +20,7 @@ import {
   BriefcaseIcon,
   ClockIcon,
   ChevronDownIcon,
+  AtSymbolIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api";
 
@@ -86,6 +87,26 @@ const VERB_META = {
       n.due_date && `due ${fmtDate(n.due_date)}`,
     ].filter(Boolean).join(" · "),
     destination: (n) => `/rfi/${n.rfi_id}/${n.rfi_slug}`,
+  },
+  mentioned: {
+    Icon:        AtSymbolIcon,
+    dotColor:    "bg-violet-500",
+    badgeColor:  "text-violet-700 dark:text-violet-400",
+    hoverBg:     "hover:bg-violet-50 dark:hover:bg-gray-700/60",
+    groupBg:     "bg-violet-50/50 dark:bg-violet-950/20",
+    groupBorder: "border-violet-100 dark:border-violet-900/40",
+    groupLabel:  (n) => `Mentioned in ${n} comment${n !== 1 ? "s" : ""}`,
+    singleLabel: "Mentioned in a comment",
+    itemLine:    (n) => `RFI #${n.rfi_number}: ${n.rfi_name}`,
+    itemSub:     (n) => [
+      n.project_number && `${n.project_number} – ${n.project_name}`,
+      n.actor_name     && `by ${n.actor_name}`,
+      n.comment_preview && `"${n.comment_preview.replace(/@(\S+(?:\s\S+)?)/g, "$1").slice(0, 60)}…"`,
+    ].filter(Boolean).join(" · "),
+    destination: (n) =>
+      n.comment_id
+        ? `/rfi/${n.rfi_id}/${n.rfi_slug}?comment=${n.comment_id}`
+        : `/rfi/${n.rfi_id}/${n.rfi_slug}`,
   },
 };
 
