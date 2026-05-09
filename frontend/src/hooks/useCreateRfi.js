@@ -12,6 +12,7 @@ const useCreateRfi = () => {
     project_number: "",        // display only
     project_name: "",          // display only
     project_manager: "",       // display only
+    sla_days: 14,              // mirrors selected project's SLA — drives auto due-date
     priority: "medium",
     trade: "M",
     rfi_name: "",
@@ -75,16 +76,28 @@ const useCreateRfi = () => {
 
     const proj = projects.find((p) => p.id === projectId);
 
-    setFormData((prev) => ({
-      ...prev,
-      project: projectId,
-      project_number: proj?.project_number || "",
-      project_name: proj?.project_name || "",
-      project_manager: proj?.project_manager_name || "",
-      rfi_number: "", // clear while fetching suggestion
-      designers: [],
-      contract_administrators: [],
-    }));
+    const sla = proj?.sla_days ?? 14;
+    setFormData((prev) => {
+      // If received_date is already filled, recompute due date with the new SLA
+      let due = prev.due_date;
+      if (prev.received_date) {
+        const d = new Date(prev.received_date + "T00:00:00");
+        d.setDate(d.getDate() + sla);
+        due = d.toISOString().slice(0, 10);
+      }
+      return {
+        ...prev,
+        project: projectId,
+        project_number: proj?.project_number || "",
+        project_name:   proj?.project_name   || "",
+        project_manager: proj?.project_manager_name || "",
+        sla_days: sla,
+        due_date: due,
+        rfi_number: "", // clear while fetching suggestion
+        designers: [],
+        contract_administrators: [],
+      };
+    });
 
     setProjectMembers([]);
 
@@ -116,7 +129,7 @@ const useCreateRfi = () => {
 
   // Generic field handler + multi-select support
   const handleChange = (e) => {
-    const { name, value, multiple, selectedOptions } = e.target;
+    const { name, value } = e.target;
 
     if (name === "project") {
       // If you decide not to use handleProjectSelect on the select element,
@@ -126,11 +139,23 @@ const useCreateRfi = () => {
         ...prev,
         project: value ? Number(value) : "",
         project_number: proj?.project_number || "",
-        project_name: proj?.project_name || "",
+        project_name:   proj?.project_name   || "",
         project_manager: proj?.project_manager_name || "",
+        sla_days: proj?.sla_days ?? 14,
         designers: [],
         contract_administrators: [],
       }));
+      return;
+    }
+
+    // Auto-fill due date from SLA whenever received date changes
+    if (name === "received_date" && value) {
+      setFormData((prev) => {
+        const sla = prev.sla_days ?? 14;
+        const d = new Date(value + "T00:00:00");
+        d.setDate(d.getDate() + sla);
+        return { ...prev, received_date: value, due_date: d.toISOString().slice(0, 10) };
+      });
       return;
     }
 
@@ -226,7 +251,7 @@ const useCreateRfi = () => {
       setSuccess(true);
       setFormData(initialForm);
       setProjectMembers([]);
-      navigate("/");
+      navigate("/rfis");
     } catch (err) {
       if (err.response) {
         // Flatten all field-level errors from the backend into individual toasts

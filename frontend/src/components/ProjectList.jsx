@@ -102,7 +102,7 @@ const ProjectList = () => {
               </button>
             )}
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/rfis")}
               className="text-gray-600 dark:text-gray-400 hover:text-indigo-700 dark:hover:text-indigo-300"
               title="Go to RFI List"
             >

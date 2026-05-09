@@ -256,6 +256,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id", "project_name", "project_number",
             "project_manager", "project_manager_name",
+            "sla_days",
             "rfi_count", "rfis", "slug",
         ]
         read_only_fields = ["slug"]

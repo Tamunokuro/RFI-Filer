@@ -18,11 +18,15 @@ from .views import (
     RfiRevisionList, OfficialResponseRevisionList,
     ContractChangeList, ContractChangeDetail,
     NotificationList, NotificationMarkRead,
+    DashboardView,
 )
 
 app_name = "rfis"
 
 urlpatterns = [
+    # ----- Dashboard -----
+    path("dashboard/", DashboardView.as_view(), name="dashboard"),
+
     # ----- Projects -----
     path("projects/", ProjectListCreate.as_view(), name="project-list"),
     path("projects/<int:pk>/", ProjectDetail.as_view(), name="project-detail"),

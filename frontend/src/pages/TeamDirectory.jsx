@@ -4,7 +4,7 @@ import api from "../api";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import InviteMemberModal from "../components/InviteMemberModal";
-import { useAuth } from "../context/Auth";
+import { useAuth, canViewTeamDirectory } from "../context/Auth";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -47,7 +47,14 @@ const initials = (name = "") =>
 
 const TeamDirectory = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, role } = useAuth();
+
+  // Redirect unauthorised roles before rendering anything
+  useEffect(() => {
+    if (!canViewTeamDirectory(role, isAdmin)) {
+      navigate("/", { replace: true });
+    }
+  }, [role, isAdmin, navigate]);
 
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);

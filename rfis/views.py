@@ -1,4 +1,5 @@
 import re
+from datetime import date, timedelta
 from django.db.models import Count, Q
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
@@ -583,6 +584,147 @@ class ProjectDetail(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# ---------- Dashboard ----------
+
+
+class DashboardView(APIView):
+    """
+    GET /api/dashboard/
+
+    Returns a single payload that powers the home-screen dashboard:
+      - stats          : KPI counters (total open, overdue, due this week, critical)
+      - project_breakdown : per-project open/overdue/due-soon counts + ball-in-court split
+      - due_this_week  : lightweight list of RFIs due within 7 days
+      - in_your_court  : RFIs where the authenticated user currently needs to act
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    ACTIVE = ["open", "submitted", "under_review", "responded"]
+
+    # Ball-in-court: which status bucket "owns" the action
+    BIC_SUBMITTER = ["open"]
+    BIC_DESIGNER  = ["submitted", "under_review"]
+    BIC_CA        = ["responded"]
+
+    def get(self, request):
+        member    = getattr(request.user, "member", None)
+        today     = date.today()
+        week_end  = today + timedelta(days=7)
+
+        # Resolve the member's accessible project IDs first (small query, no M2M
+        # join on the RFI table).  Doing the scoping this way avoids inflated
+        # COUNT() results that occur when the M2M join produces duplicate rows
+        # inside annotate() calls.
+        if member:
+            my_project_ids = list(
+                Project.objects
+                .filter(Q(members=member) | Q(project_manager=member))
+                .values_list("id", flat=True)
+                .distinct()
+            )
+        else:
+            my_project_ids = []
+
+        active_qs = (
+            Rfi.objects
+            .filter(project_id__in=my_project_ids, status__in=self.ACTIVE)
+            .select_related("project")
+        )
+
+        # ── KPI counters ──────────────────────────────────────────────────────
+        total_open    = active_qs.count()
+        overdue_count = active_qs.filter(due_date__lt=today).count()
+        due_week_cnt  = active_qs.filter(due_date__gte=today, due_date__lte=week_end).count()
+        critical_cnt  = active_qs.filter(priority="critical").count()
+
+        # ── Per-project breakdown (one DB round-trip via annotations) ─────────
+        project_stats = list(
+            active_qs
+            .values("project__id", "project__project_number", "project__project_name")
+            .annotate(
+                open_count    = Count("id"),
+                overdue_count = Count("id", filter=Q(due_date__lt=today)),
+                due_week      = Count("id", filter=Q(due_date__gte=today,
+                                                      due_date__lte=week_end)),
+                critical      = Count("id", filter=Q(priority="critical")),
+                with_submitter= Count("id", filter=Q(status__in=self.BIC_SUBMITTER)),
+                with_designer = Count("id", filter=Q(status__in=self.BIC_DESIGNER)),
+                with_ca       = Count("id", filter=Q(status__in=self.BIC_CA)),
+            )
+            .order_by("-overdue_count", "-open_count")
+        )
+
+        # ── Due this week — lightweight summary dicts ─────────────────────────
+        due_week_rfis = (
+            active_qs
+            .filter(due_date__gte=today, due_date__lte=week_end)
+            .order_by("due_date", "-priority")
+            [:25]
+        )
+
+        # ── In your court ─────────────────────────────────────────────────────
+        in_your_court_data = []
+        if member:
+            court_qs = (
+                Rfi.objects
+                .filter(status__in=self.ACTIVE)
+                .select_related("project")
+                .filter(
+                    Q(status__in=self.BIC_DESIGNER, designers=member) |
+                    Q(status__in=self.BIC_CA,        contract_administrators=member) |
+                    Q(status__in=self.BIC_SUBMITTER, author=request.user)
+                )
+                .distinct()
+                .order_by("due_date")
+                [:20]
+            )
+            in_your_court_data = [self._rfi_summary(r, today) for r in court_qs]
+
+        return Response({
+            "stats": {
+                "total_open":    total_open,
+                "overdue":       overdue_count,
+                "due_this_week": due_week_cnt,
+                "critical":      critical_cnt,
+            },
+            "project_breakdown": [
+                {
+                    "project_id":     p["project__id"],
+                    "project_number": p["project__project_number"],
+                    "project_name":   p["project__project_name"],
+                    "open":           p["open_count"],
+                    "overdue":        p["overdue_count"],
+                    "due_this_week":  p["due_week"],
+                    "critical":       p["critical"],
+                    "with_submitter": p["with_submitter"],
+                    "with_designer":  p["with_designer"],
+                    "with_ca":        p["with_ca"],
+                }
+                for p in project_stats
+            ],
+            "due_this_week": [self._rfi_summary(r, today) for r in due_week_rfis],
+            "in_your_court": in_your_court_data,
+        })
+
+    @staticmethod
+    def _rfi_summary(rfi, today):
+        due       = rfi.due_date
+        days_left = (due - today).days if due else None
+        return {
+            "id":             rfi.id,
+            "slug":           rfi.slug,
+            "rfi_number":     rfi.rfi_number,
+            "rfi_name":       rfi.rfi_name,
+            "status":         rfi.status,
+            "priority":       rfi.priority,
+            "due_date":       str(due) if due else None,
+            "days_left":      days_left,
+            "project_id":     rfi.project_id,
+            "project_number": rfi.project.project_number,
+            "project_name":   rfi.project.project_name,
+        }
+
+
 # ---------- RFIs ----------
 
 
@@ -590,8 +732,23 @@ class RfiListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        qs = Rfi.objects.select_related("project", "author").prefetch_related(
-            "designers", "contract_administrators"
+        # Scope to projects the requesting user is a member of or manages.
+        member = getattr(request.user, "member", None)
+        if member:
+            my_project_ids = list(
+                Project.objects
+                .filter(Q(members=member) | Q(project_manager=member))
+                .values_list("id", flat=True)
+                .distinct()
+            )
+        else:
+            my_project_ids = []
+
+        qs = (
+            Rfi.objects
+            .filter(project_id__in=my_project_ids)
+            .select_related("project", "author")
+            .prefetch_related("designers", "contract_administrators")
         )
 
         project_id = request.query_params.get("project")
@@ -1494,7 +1651,22 @@ class RfiMarkAllRead(APIView):
 class MemberListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    # Roles that may view the full cross-project team directory.
+    # All other roles (designers, contractors, clients, …) are restricted to
+    # the member lists exposed on individual project pages.
+    DIRECTORY_ROLES = {Member.Role.PROJECT_MANAGER}
+
     def get(self, request):
+        member = getattr(request.user, "member", None)
+        is_allowed = request.user.is_staff or (
+            member and member.role in self.DIRECTORY_ROLES
+        )
+        if not is_allowed:
+            return Response(
+                {"detail": "You do not have permission to view the team directory."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Optional filters used by the team directory:
         #   ?role=Project Manager
         #   ?search=jane

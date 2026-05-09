@@ -21,6 +21,7 @@ import ResetPassword from "./pages/ResetPassword";
 import MemberDetail from "./pages/MemberDetail";
 import TeamDirectory from "./pages/TeamDirectory";
 import EmailInbox from "./pages/EmailInbox";
+import Dashboard from "./pages/Dashboard";
 
 import Toaster from "./components/Toaster";
 import SessionWarningModal from "./components/SessionWarningModal";
@@ -61,6 +62,14 @@ function AppShell() {
       <Routes>
         <Route
           path="/"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/rfis"
           element={
             <PrivateRoute>
               <RfiList />

@@ -128,6 +128,14 @@ export const canEditRfi = (role, rfiStatus) => {
   return rfiStatus === "open" || rfiStatus === "under_review";
 };
 
+/**
+ * Full team directory (all members across all projects) is restricted to
+ * Project Managers and app admins.  Designers and other roles can only see
+ * the member lists that are scoped to their individual projects.
+ */
+export const canViewTeamDirectory = (role, isAdmin) =>
+  isAdmin || role === "Project Manager";
+
 /** Roles permitted to create new projects. */
 export const PROJECT_EDITOR_ROLES = ["Project Manager", "Contract Administrator"];
 
