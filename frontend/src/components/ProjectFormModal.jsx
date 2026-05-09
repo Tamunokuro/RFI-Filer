@@ -16,9 +16,10 @@ import { XMarkIcon } from "@heroicons/react/20/solid";
 const ProjectFormModal = ({ project = null, onClose, onSaved }) => {
   const editing = !!project;
 
-  const [number, setNumber] = useState(project?.project_number || "");
-  const [name, setName] = useState(project?.project_name || "");
-  const [pmId, setPmId] = useState(project?.project_manager || "");
+  const [number, setNumber]   = useState(project?.project_number || "");
+  const [name, setName]       = useState(project?.project_name   || "");
+  const [pmId, setPmId]       = useState(project?.project_manager || "");
+  const [slaDays, setSlaDays] = useState(project?.sla_days ?? 14);
 
   const [members, setMembers] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -43,10 +44,12 @@ const ProjectFormModal = ({ project = null, onClose, onSaved }) => {
       return;
     }
     setSaving(true);
+    const sla = parseInt(slaDays, 10);
     const payload = {
-      project_number: number.trim(),
-      project_name: name.trim(),
+      project_number:  number.trim(),
+      project_name:    name.trim(),
       project_manager: pmId || null,
+      sla_days:        Number.isFinite(sla) && sla > 0 ? sla : 14,
     };
     try {
       const { data } = editing
@@ -138,6 +141,28 @@ const ProjectFormModal = ({ project = null, onClose, onSaved }) => {
           </select>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             The PM is automatically added to the project team and granted admin rights.
+          </p>
+        </div>
+
+        {/* SLA / response time */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            SLA — default response time (days)
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={slaDays}
+              onChange={(e) => setSlaDays(e.target.value)}
+              disabled={saving}
+              className="w-24 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1.5 text-gray-900 dark:text-gray-100"
+            />
+            <span className="text-xs text-gray-500 dark:text-gray-400">calendar days</span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            When creating an RFI, the due date auto-fills as Received + this many days.
           </p>
         </div>
 

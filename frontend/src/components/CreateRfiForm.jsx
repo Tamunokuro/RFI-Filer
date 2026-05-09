@@ -181,13 +181,21 @@ const CreateRfiForm = () => {
               required
             />
 
-            <DateInput
-              label="Due Date"
-              name="due_date"
-              value={formData.due_date}
-              onChange={handleChange}
-              required
-            />
+            <div className="flex-1">
+              <DateInput
+                label="Due Date"
+                name="due_date"
+                value={formData.due_date}
+                onChange={handleChange}
+                required
+              />
+              {formData.project && (
+                <p className="mt-1 text-xs text-indigo-500 dark:text-indigo-400">
+                  ⏱ Auto-set: {formData.sla_days ?? 14} days from received
+                  {!formData.received_date && " (select a received date first)"}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Question */}

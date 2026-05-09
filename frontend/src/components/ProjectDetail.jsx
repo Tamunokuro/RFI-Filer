@@ -221,7 +221,7 @@ const ProjectDetail = () => {
             </div>
           </div>
 
-          <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <dl className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
             <div>
               <dt className="text-gray-500 dark:text-gray-400">Total RFIs</dt>
               <dd className="text-gray-900 dark:text-gray-100 font-semibold">{allRfis.length}</dd>
@@ -237,6 +237,13 @@ const ProjectDetail = () => {
             <div>
               <dt className="text-gray-500 dark:text-gray-400">Contract Changes</dt>
               <dd className="text-gray-900 dark:text-gray-100 font-semibold">{contractChanges.length}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 dark:text-gray-400">SLA</dt>
+              <dd className="text-gray-900 dark:text-gray-100 font-semibold">
+                {project.sla_days ?? 14}
+                <span className="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">days</span>
+              </dd>
             </div>
           </dl>
         </section>

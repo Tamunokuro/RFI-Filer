@@ -20,17 +20,18 @@ import ExcelJS from "exceljs";
 // ── Column definitions ────────────────────────────────────────────────────────
 
 const COLUMNS = [
-  { header: "Project Number",   key: "project_number",   width: 18 },
-  { header: "RFI Number",       key: "rfi_number",       width: 14 },
-  { header: "RFI Name",         key: "rfi_name",         width: 32 },
-  { header: "Project",          key: "project_name",     width: 26 },
-  { header: "Project Manager",  key: "project_manager",  width: 22 },
-  { header: "Trade",            key: "trade",            width: 10 },
-  { header: "Received",       key: "received_date",  width: 14 },
-  { header: "Due Date",       key: "due_date",       width: 14 },
-  { header: "Designers",               key: "designers",               width: 28 },
-  { header: "Contract Administrators", key: "contract_administrators",  width: 28 },
-  { header: "Status",         key: "status",         width: 13 },
+  { header: "Project Number",         key: "project_number",         width: 18 },
+  { header: "RFI Number",             key: "rfi_number",             width: 14 },
+  { header: "RFI Name",               key: "rfi_name",               width: 32 },
+  { header: "Project",                key: "project_name",           width: 26 },
+  { header: "Project Manager",        key: "project_manager",        width: 22 },
+  { header: "Trade",                  key: "trade",                  width: 10 },
+  { header: "Priority",               key: "priority",               width: 12 },
+  { header: "Received",               key: "received_date",          width: 14 },
+  { header: "Due Date",               key: "due_date",               width: 14 },
+  { header: "Designers",              key: "designers",              width: 28 },
+  { header: "Contract Administrators",key: "contract_administrators", width: 28 },
+  { header: "Status",                 key: "status",                 width: 13 },
 ];
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
@@ -85,22 +86,24 @@ export async function exportRfisToExcel(rfis, filename = "rfi-list.xlsx") {
 
   // ── Data rows ──────────────────────────────────────────────────────────────
   rfis.forEach((rfi) => {
+    const PRIORITY_LABEL = { low: "Low", medium: "Medium", high: "High", critical: "Critical" };
     const row = ws.addRow({
       project_number:  rfi.project_number       ?? "",
       rfi_number:      rfi.rfi_number           ?? "",
       rfi_name:        rfi.rfi_name             ?? "",
       project_name:    rfi.project_name         ?? "",
       project_manager: rfi.project_manager_name ?? "—",
-      trade:           rfi.trade               ?? "",
-      received_date:  fmtDate(rfi.received_date),
-      due_date:       fmtDate(rfi.due_date),
+      trade:           rfi.trade                ?? "",
+      priority:        PRIORITY_LABEL[rfi.priority] || (rfi.priority ?? "Medium"),
+      received_date:   fmtDate(rfi.received_date),
+      due_date:        fmtDate(rfi.due_date),
       designers:               rfi.designers_detail?.length
                                ? rfi.designers_detail.map((m) => m.name).join(", ")
                                : "—",
       contract_administrators: rfi.contract_administrators_detail?.length
                                ? rfi.contract_administrators_detail.map((m) => m.name).join(", ")
                                : "—",
-      status:         statusLabel(rfi.due_date),
+      status:          statusLabel(rfi.due_date),
     });
 
     const argb = rowFillArgb(rfi.due_date);

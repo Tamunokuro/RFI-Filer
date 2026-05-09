@@ -117,7 +117,7 @@ const UpdateRfiForm = () => {
 
     try {
       await api.patch(`/api/rfis/${pk}/`, payload);
-      navigate("/");
+      navigate("/rfis");
     } catch {
       setError("Update failed. Please check your input and try again.");
     } finally {

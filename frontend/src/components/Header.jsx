@@ -1,7 +1,7 @@
-import { useAuth } from "../context/Auth";
+import { useAuth, canViewTeamDirectory } from "../context/Auth";
 import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
-import { FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon, InboxIcon, DocumentTextIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon, InboxIcon, DocumentTextIcon, UsersIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
 import NotificationBell from "./NotificationBell";
 import { useTheme } from "../context/Theme";
@@ -11,7 +11,7 @@ const Header = ({ title }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const { isAuthenticated, username, displayName, memberId, logout } =
+  const { isAuthenticated, username, displayName, memberId, role, isAdmin, logout } =
     useAuth();
 
   const shownName = displayName || username || "";
@@ -44,7 +44,11 @@ const Header = ({ title }) => {
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
         {isAuthenticated && (
           <>
-            <button onClick={() => navigate("/")} className={iconBtn} title="RFI List">
+            <button onClick={() => navigate("/")} className={iconBtn} title="Dashboard">
+              <HomeIcon className="w-6 h-6" />
+            </button>
+
+            <button onClick={() => navigate("/rfis")} className={iconBtn} title="RFI List">
               <ClipboardDocumentListIcon className="w-6 h-6" />
             </button>
 
@@ -59,9 +63,11 @@ const Header = ({ title }) => {
               <DocumentTextIcon className="w-6 h-6" />
             </button>
 
-            <button onClick={() => navigate("/team")} className={iconBtn} title="Team Directory">
-              <UsersIcon className="w-6 h-6" />
-            </button>
+            {canViewTeamDirectory(role, isAdmin) && (
+              <button onClick={() => navigate("/team")} className={iconBtn} title="Team Directory">
+                <UsersIcon className="w-6 h-6" />
+              </button>
+            )}
 
             <button onClick={() => navigate("/email-inbox")} className={iconBtn} title="Email Inbox">
               <InboxIcon className="w-6 h-6" />

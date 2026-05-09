@@ -53,6 +53,10 @@ class Project(models.Model):
     )
     members = models.ManyToManyField(Member, through="ProjectMembership", related_name="projects", blank=True)
     slug = models.SlugField(max_length=120, unique=True, blank=True)
+    sla_days = models.PositiveSmallIntegerField(
+        default=14,
+        help_text="Default response time in calendar days. New RFIs auto-fill due date as Received + sla_days.",
+    )
 
     def __str__(self):
         return f"{self.project_number} - {self.project_name}"
