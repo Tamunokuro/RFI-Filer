@@ -21,13 +21,22 @@ from .models import (
     Project, Rfi, Member, ProjectMembership,
     RfiComment, RfiReadState, RfiAttachment, RfiCommentAttachment,
     RfiRevision, OfficialResponseRevision, ContractChange,
-    Notification,
+    Notification, RfiWatcher, AuditLog,
 )
 from .serializer import (
     ProjectSerializer, RfiSerializer, MemberSerializer, ProjectMembershipSerializer, RegisterSerializer,
     RfiCommentSerializer, RfiCommentAttachmentSerializer, OfficialResponseSerializer, RfiAttachmentSerializer,
     MemberProfileUpdateSerializer, RfiRevisionSerializer, OfficialResponseRevisionSerializer,
     ContractChangeSerializer,
+)
+from .email_utils import (
+    notify_rfi_assigned as _email_rfi_assigned,
+    notify_rfi_comment as _email_rfi_comment,
+    notify_official_response as _email_official_response,
+    notify_rfi_returned as _email_rfi_returned,
+    notify_status_change as _email_status_change,
+    notify_watcher_added as _email_watcher_added,
+    notify_mention as _email_mention,
 )
 
 
@@ -98,14 +107,28 @@ def _diff_snapshots(before, after):
     return changes
 
 
+def _audit(rfi, actor, action: str, **detail):
+    """Create an AuditLog entry. Swallows all errors so it never breaks a response."""
+    try:
+        AuditLog.objects.create(rfi=rfi, actor=actor, action=action, detail=detail)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _watchers_list(rfi):
+    """Return a list of Member objects watching this RFI."""
+    return list(Member.objects.filter(watched_rfis__rfi=rfi))
+
+
 # Valid forward transitions for the RFI status workflow.
 # Keys are the current status; values are the set of allowed next statuses.
 # "closed" is a terminal state — no transitions out of it.
 VALID_TRANSITIONS: dict[str, set[str]] = {
     Rfi.Status.OPEN:         {Rfi.Status.SUBMITTED, Rfi.Status.CLOSED},
     Rfi.Status.SUBMITTED:    {Rfi.Status.UNDER_REVIEW, Rfi.Status.CLOSED},
-    Rfi.Status.UNDER_REVIEW: {Rfi.Status.RESPONDED, Rfi.Status.CLOSED},
+    Rfi.Status.UNDER_REVIEW: {Rfi.Status.RESPONDED, Rfi.Status.RETURNED, Rfi.Status.CLOSED},
     Rfi.Status.RESPONDED:    {Rfi.Status.CLOSED},
+    Rfi.Status.RETURNED:     {Rfi.Status.SUBMITTED, Rfi.Status.CLOSED},
     Rfi.Status.CLOSED:       set(),
 }
 
@@ -159,6 +182,7 @@ class MeView(APIView):
                 "discipline": member.discipline,
                 "phone": member.phone,
                 "is_admin": member.is_admin,
+                "email_notifications": member.email_notifications,
             } if member else None,
         }
 
@@ -281,6 +305,23 @@ PROJECT_EDITOR_ROLES = {
 }
 
 
+def _member_project_ids(member):
+    """
+    Returns the list of project IDs accessible to *member*.
+    Returns None for admins (signal: no filter — they see everything).
+    Returns [] when the user has no member profile or no memberships.
+    """
+    if member is None:
+        return []
+    if member.is_admin:
+        return None  # None = unrestricted
+    return list(
+        Project.objects.filter(
+            Q(members=member) | Q(project_manager=member)
+        ).values_list("id", flat=True).distinct()
+    )
+
+
 def _can_create_project(member):
     if member is None:
         return False
@@ -306,13 +347,29 @@ class ProjectListCreate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        member = getattr(request.user, "member", None)
         # optional search ?q=
         q = request.query_params.get("q", "")
-        qs = (Project.objects
-              .annotate(rfi_count=Count("rfis"))
-              .select_related("project_manager"))
+
+        base_qs = Project.objects.annotate(rfi_count=Count("rfis")).select_related("project_manager")
+
+        if member and member.is_admin:
+            # Admins see every project
+            qs = base_qs
+        elif member:
+            # Regular members only see projects they belong to
+            qs = base_qs.filter(
+                Q(members=member) | Q(project_manager=member)
+            ).distinct()
+        else:
+            qs = Project.objects.none()
+
         if q:
-            qs = qs.filter(project_name__icontains=q) | qs.filter(project_number__icontains=q) | qs.filter(project_manager__name__icontains=q)
+            qs = qs.filter(
+                Q(project_name__icontains=q) |
+                Q(project_number__icontains=q) |
+                Q(project_manager__name__icontains=q)
+            )
         data = ProjectSerializer(qs, many=True).data
         return Response(data)
 
@@ -522,12 +579,37 @@ class ProjectNextRfiNumber(APIView):
         project = get_object_or_404(Project, pk=pk)
         numbers = Rfi.objects.filter(project=project).values_list("rfi_number", flat=True)
 
+        # If ?parent_rfi_id=<id> is supplied, suggest the next .N revision number
+        # for the given parent RFI (e.g. "RFI-003" → "RFI-003.1", "RFI-003.2" …).
+        parent_rfi_id = request.query_params.get("parent_rfi_id")
+        if parent_rfi_id:
+            try:
+                parent = Rfi.objects.get(pk=parent_rfi_id, project=project)
+            except (Rfi.DoesNotExist, ValueError):
+                return Response({"detail": "Parent RFI not found in this project."}, status=404)
+
+            base = parent.rfi_number
+            existing = Rfi.objects.filter(
+                project=project, rfi_number__startswith=f"{base}."
+            ).values_list("rfi_number", flat=True)
+
+            max_sub = 0
+            for num in existing:
+                # match "RFI-003.2" → "2"
+                m = re.search(r"\.(\d+)\s*$", num.strip())
+                if m:
+                    max_sub = max(max_sub, int(m.group(1)))
+
+            next_number = f"{base}.{max_sub + 1}"
+            return Response({"next_rfi_number": next_number})
+
         max_num = 0
         for rfi_number in numbers:
-            # Match the last run of digits in the string, e.g. "RFI-007" → 7
-            match = re.search(r"(\d+)\s*$", rfi_number.strip())
-            if match:
-                max_num = max(max_num, int(match.group(1)))
+            # Only match top-level numbers (no dot); e.g. "RFI-007" → 7
+            if "." not in rfi_number:
+                match = re.search(r"(\d+)\s*$", rfi_number.strip())
+                if match:
+                    max_num = max(max_num, int(match.group(1)))
 
         next_number = f"RFI-{max_num + 1:03d}"
         return Response({"next_rfi_number": next_number})
@@ -819,6 +901,7 @@ class RfiListCreate(APIView):
             # Unknown integrity error -> re-raise so you see it in logs
             raise
 
+        _audit(rfi, getattr(request.user, "member", None), "created")
         # Re-serialize to include read-only/nested fields (designers_detail, contract_administrators_detail, etc.)
         return Response(RfiSerializer(rfi).data, status=status.HTTP_201_CREATED)
 
@@ -826,20 +909,26 @@ class RfiListCreate(APIView):
 class RfiDetail(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self, pk):
-        return get_object_or_404(
-            Rfi.objects.select_related("project", "project__project_manager", "author").prefetch_related(
-                "designers", "contract_administrators"
-            ),
-            pk=pk,
-        )
+    def get_object(self, pk, member=None):
+        qs = Rfi.objects.select_related(
+            "project", "project__project_manager", "author"
+        ).prefetch_related("designers", "contract_administrators")
+
+        project_ids = _member_project_ids(member)
+        if project_ids is not None:
+            # None means admin (unrestricted); a list (possibly empty) filters
+            qs = qs.filter(project_id__in=project_ids)
+
+        return get_object_or_404(qs, pk=pk)
 
     def get(self, request, pk):
-        rfi = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        rfi = self.get_object(pk, member=member)
         return Response(RfiSerializer(rfi).data)
 
     def put(self, request, pk):
-        rfi = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        rfi = self.get_object(pk, member=member)
         serializer = RfiSerializer(rfi, data=request.data, context={"request": request})
         if serializer.is_valid():
             rfi = serializer.save()  # designers / contract_administrators handled in serializer.update
@@ -847,8 +936,8 @@ class RfiDetail(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, pk):
-        rfi = self.get_object(pk)
         member = getattr(request.user, "member", None)
+        rfi = self.get_object(pk, member=member)
         role = getattr(member, "role", None)
 
         # ── Permission: who can edit at which status ──────────────────────────
@@ -903,11 +992,14 @@ class RfiDetail(APIView):
                         changes=changes,
                         rfi_status_at_revision=rfi.status,
                     )
+                    _audit(rfi, member, "rfi_revised", changes=changes)
 
+        _audit(rfi, member, "updated")
         return Response(RfiSerializer(rfi, context={"request": request}).data)
 
     def delete(self, request, pk):
-        rfi = self.get_object(pk)
+        member = getattr(request.user, "member", None)
+        rfi = self.get_object(pk, member=member)
         rfi.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1030,6 +1122,7 @@ class RfiTransition(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        old_status = rfi.status
         update_fields = ["status"]
         rfi.status = new_status
 
@@ -1039,10 +1132,377 @@ class RfiTransition(APIView):
             update_fields.append("closed_at")
 
         rfi.save(update_fields=update_fields)
+
+        # Audit + email
+        member = getattr(request.user, "member", None)
+        _audit(rfi, member, "status_changed",
+               from_status=old_status, to_status=new_status)
+        watchers = _watchers_list(rfi)
+        _email_status_change(rfi, new_status, member, watchers)
+
         return Response(
             RfiSerializer(rfi, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
+
+
+# ---------- Return to Submitter ----------
+
+class RfiReturn(APIView):
+    """
+    POST /api/rfis/<pk>/return/
+
+    Allows a designer / CA / PM to bounce an RFI back to the submitter
+    with an explanatory note.  The RFI must be in ``under_review`` status.
+
+    Body:
+        note (str, required) — reason for the return
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    # Roles that may return an RFI
+    RETURN_ROLES = {
+        Member.Role.PROJECT_DESIGNER,
+        Member.Role.SUB_CONSULTANT,
+        Member.Role.CONTRACT_ADMIN,
+        Member.Role.PROJECT_MANAGER,
+    }
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        member = getattr(request.user, "member", None)
+
+        if member is None or member.role not in self.RETURN_ROLES:
+            return Response(
+                {"detail": "Only designers, sub-consultants, contract administrators, "
+                           "or project managers may return an RFI."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if rfi.status != Rfi.Status.UNDER_REVIEW:
+            return Response(
+                {"detail": "Only RFIs that are under review can be returned to the submitter."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        note = (request.data.get("note") or "").strip()
+        if not note:
+            return Response(
+                {"note": ["Please provide a reason for returning this RFI."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rfi.status      = Rfi.Status.RETURNED
+        rfi.return_note = note
+        rfi.save(update_fields=["status", "return_note"])
+
+        # Post a system comment so the reason is visible in the discussion thread
+        RfiComment.objects.create(
+            rfi=rfi,
+            author=member,
+            body=f"[Returned to submitter]\n\n{note}",
+            is_official_response=False,
+        )
+
+        # In-app notification for the submitter
+        submitter_member = getattr(rfi.author, "member", None)
+        if submitter_member and submitter_member != member:
+            Notification.objects.create(
+                recipient=submitter_member,
+                verb=Notification.Verb.RFI_RETURNED,
+                actor_name=member.name,
+                project=rfi.project,
+                extra={
+                    "rfi_id":         rfi.id,
+                    "rfi_slug":       rfi.slug,
+                    "rfi_number":     rfi.rfi_number,
+                    "rfi_name":       rfi.rfi_name,
+                    "project_number": rfi.project.project_number,
+                    "project_name":   rfi.project.project_name,
+                    "return_note":    note,
+                },
+            )
+
+        _audit(rfi, member, "returned_to_submitter", note=note)
+        _email_rfi_returned(rfi, member, note)
+
+        return Response(
+            RfiSerializer(rfi, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------- RFI Watchers ----------
+
+class RfiWatcherList(APIView):
+    """
+    GET  /api/rfis/<pk>/watchers/    — list watchers
+    POST /api/rfis/<pk>/watchers/    — add a watcher (body: {"member_id": N})
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        watchers = rfi.watchers.select_related("member").all()
+        data = [
+            {
+                "id":         w.id,
+                "member_id":  w.member_id,
+                "name":       w.member.name,
+                "email":      w.member.email,
+                "role":       w.member.role,
+                "company":    w.member.company,
+                "added_at":   w.added_at.isoformat(),
+            }
+            for w in watchers
+        ]
+        return Response(data)
+
+    def post(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        actor = getattr(request.user, "member", None)
+
+        member_id = request.data.get("member_id")
+        if not member_id:
+            return Response({"member_id": ["This field is required."]},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            target = Member.objects.get(pk=member_id)
+        except (Member.DoesNotExist, ValueError, TypeError):
+            return Response({"member_id": ["Member not found."]},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        watcher, created = RfiWatcher.objects.get_or_create(rfi=rfi, member=target)
+        if not created:
+            return Response(
+                {"detail": f"{target.name} is already watching this RFI."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        _audit(rfi, actor, "watcher_added", watcher_name=target.name)
+        _email_watcher_added(rfi, target, actor)
+
+        return Response(
+            {
+                "id":        watcher.id,
+                "member_id": watcher.member_id,
+                "name":      target.name,
+                "email":     target.email,
+                "role":      target.role,
+                "company":   target.company,
+                "added_at":  watcher.added_at.isoformat(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RfiWatcherDetail(APIView):
+    """
+    DELETE /api/rfis/<pk>/watchers/<member_id>/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk, member_id):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        actor = getattr(request.user, "member", None)
+        watcher = get_object_or_404(RfiWatcher, rfi=rfi, member_id=member_id)
+
+        # Only the watcher themselves, or an admin/PM, can remove a watcher
+        is_self  = actor is not None and actor.id == int(member_id)
+        is_admin = actor is not None and actor.is_admin
+        is_pm    = actor is not None and actor.role == Member.Role.PROJECT_MANAGER
+
+        if not (is_self or is_admin or is_pm):
+            return Response(
+                {"detail": "You do not have permission to remove this watcher."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        removed_name = watcher.member.name
+        watcher.delete()
+        _audit(rfi, actor, "watcher_removed", watcher_name=removed_name)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- Audit Log ----------
+
+class RfiAuditLogView(APIView):
+    """
+    GET /api/rfis/<pk>/audit-log/
+
+    Returns a chronological (newest-first) audit trail for an RFI.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        rfi = get_object_or_404(Rfi, pk=pk)
+        entries = rfi.audit_logs.select_related("actor").all()
+        data = [
+            {
+                "id":         e.id,
+                "action":     e.action,
+                "actor_name": e.actor.name if e.actor else "System",
+                "actor_role": e.actor.role if e.actor else "",
+                "detail":     e.detail,
+                "timestamp":  e.timestamp.isoformat(),
+            }
+            for e in entries
+        ]
+        return Response(data)
+
+
+# ---------- Response-Time Analytics ----------
+
+class AnalyticsView(APIView):
+    """
+    GET /api/analytics/
+
+    Returns response-time analytics for the authenticated user's projects.
+
+    Payload:
+      - avg_days_by_project  : [{project_number, project_name, avg_days, count}]
+      - avg_days_by_trade    : [{trade, avg_days, count}]
+      - monthly_counts       : [{month (YYYY-MM), opened, closed}]
+      - priority_breakdown   : [{priority, count}]
+      - status_breakdown     : [{status, count}]
+      - overdue_rate         : float (0-1)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models.functions import TruncMonth
+        from collections import defaultdict
+
+        member = getattr(request.user, "member", None)
+        if member:
+            my_project_ids = list(
+                Project.objects
+                .filter(Q(members=member) | Q(project_manager=member))
+                .values_list("id", flat=True)
+                .distinct()
+            )
+        else:
+            my_project_ids = []
+
+        base_qs = Rfi.objects.filter(project_id__in=my_project_ids)
+        today = date.today()
+
+        # ── Avg response days — computed in Python to avoid ORM date-subtraction
+        # quirks with timezone-aware datetimes across different DB backends.
+        responded_rows = (
+            base_qs
+            .filter(responded_at__isnull=False, received_date__isnull=False)
+            .values("project__project_number", "project__project_name",
+                    "trade", "received_date", "responded_at")
+        )
+
+        proj_days  = defaultdict(list)   # (number, name) → [days, ...]
+        trade_days = defaultdict(list)   # trade → [days, ...]
+
+        for row in responded_rows:
+            recv = row["received_date"]        # date
+            resp = row["responded_at"]         # datetime (possibly tz-aware)
+            if recv and resp:
+                resp_date = resp.date() if hasattr(resp, "date") else resp
+                delta = (resp_date - recv).days
+                key = (row["project__project_number"], row["project__project_name"])
+                proj_days[key].append(delta)
+                trade_days[row["trade"] or "—"].append(delta)
+
+        avg_days_by_project = sorted([
+            {
+                "project_number": k[0],
+                "project_name":   k[1],
+                "avg_days":       round(sum(v) / len(v), 1),
+                "count":          len(v),
+            }
+            for k, v in proj_days.items()
+        ], key=lambda x: x["project_number"])
+
+        avg_days_by_trade = sorted([
+            {
+                "trade":    t,
+                "avg_days": round(sum(v) / len(v), 1),
+                "count":    len(v),
+            }
+            for t, v in trade_days.items()
+        ], key=lambda x: x["trade"])
+
+        # Overall weighted average
+        all_days = [d for v in proj_days.values() for d in v]
+        overall_avg_days = round(sum(all_days) / len(all_days), 1) if all_days else None
+
+        # ── Monthly opened / closed counts ────────────────────────────────────
+        # Use timezone-aware datetime so filter comparisons against DateTimeField
+        # (closed_at) don't trigger naive-datetime warnings in USE_TZ=True projects.
+        twelve_months_ago = timezone.make_aware(
+            timezone.datetime(today.year, today.month, 1)
+        ) - timedelta(days=365)
+
+        opened_by_month = (
+            base_qs
+            .filter(received_date__gte=twelve_months_ago)
+            .annotate(month=TruncMonth("received_date"))
+            .values("month")
+            .annotate(opened=Count("id"))
+        )
+        closed_by_month = (
+            base_qs
+            .filter(closed_at__isnull=False, closed_at__gte=twelve_months_ago)
+            .annotate(month=TruncMonth("closed_at"))
+            .values("month")
+            .annotate(closed=Count("id"))
+        )
+
+        monthly = {}
+        for row in opened_by_month:
+            key = row["month"].strftime("%Y-%m")
+            monthly.setdefault(key, {"month": key, "opened": 0, "closed": 0})
+            monthly[key]["opened"] = row["opened"]
+        for row in closed_by_month:
+            key = row["month"].strftime("%Y-%m")
+            monthly.setdefault(key, {"month": key, "opened": 0, "closed": 0})
+            monthly[key]["closed"] = row["closed"]
+
+        monthly_counts = sorted(monthly.values(), key=lambda x: x["month"])
+
+        # ── Priority breakdown (all RFIs, not just open) ──────────────────────
+        priority_breakdown = list(
+            base_qs
+            .values("priority")
+            .annotate(count=Count("id"))
+            .order_by("priority")
+        )
+
+        # ── Status breakdown ──────────────────────────────────────────────────
+        status_breakdown = list(
+            base_qs
+            .values("status")
+            .annotate(count=Count("id"))
+            .order_by("status")
+        )
+
+        # ── Overdue rate (active RFIs) ────────────────────────────────────────
+        active_statuses = ["open", "submitted", "under_review", "responded", "returned"]
+        active_count  = base_qs.filter(status__in=active_statuses).count()
+        overdue_count = base_qs.filter(
+            status__in=active_statuses, due_date__lt=today
+        ).count()
+        overdue_rate = round(overdue_count / active_count, 4) if active_count else 0.0
+
+        return Response({
+            "avg_days_by_project":  avg_days_by_project,
+            "avg_days_by_trade":    avg_days_by_trade,
+            "overall_avg_days":     overall_avg_days,
+            "total_responded":      len(all_days),
+            "monthly_counts":       monthly_counts,
+            "priority_breakdown":   priority_breakdown,
+            "status_breakdown":     status_breakdown,
+            "overdue_rate":         overdue_rate,
+            "active_count":         active_count,
+            "overdue_count":        overdue_count,
+        })
 
 
 # ---------- RFI Discussion / Official Response ----------
@@ -1103,6 +1563,10 @@ class RfiCommentListCreate(APIView):
             )
 
         _notify_mentions(comment, rfi, author=member)
+        watchers = _watchers_list(rfi)
+        _email_rfi_comment(rfi, comment, watchers, exclude_member=member)
+        _audit(rfi, member, "comment_added",
+               comment_id=comment.id, preview=body[:100])
         ctx = {"request": request}
         return Response(RfiCommentSerializer(comment, context=ctx).data, status=status.HTTP_201_CREATED)
 
@@ -1151,6 +1615,7 @@ def _notify_mentions(comment, rfi, author):
                     "comment_preview": body[:120],
                 },
             )
+            _email_mention(rfi, comment, m, author.name)
 
 
 class RfiOfficialResponse(APIView):
@@ -1294,6 +1759,12 @@ class RfiOfficialResponse(APIView):
                     description=contract_change_description,
                     created_by=member,
                 )
+
+        # Audit + email
+        watchers = _watchers_list(rfi)
+        _audit(rfi, member, "official_response_submitted",
+               response_number=resp_num, preview=body[:120])
+        _email_official_response(rfi, member, body, watchers)
 
         return Response(
             RfiSerializer(rfi, context={"request": request}).data,
@@ -1611,11 +2082,13 @@ class RfiUnreadSummary(APIView):
 
         unread = {}
         # Only count non-self comments so you don't badge yourself.
-        comments = (
-            RfiComment.objects
-            .exclude(author=member)
-            .values("rfi_id", "created_at")
-        )
+        # Scope to projects this member belongs to.
+        project_ids = _member_project_ids(member)
+        comments_qs = RfiComment.objects.exclude(author=member).values("rfi_id", "created_at")
+        if project_ids is not None:
+            comments_qs = comments_qs.filter(rfi__project_id__in=project_ids)
+        comments = comments_qs
+
         for row in comments:
             rfi_id = row["rfi_id"]
             created = row["created_at"]
@@ -1647,12 +2120,18 @@ class RfiNotifications(APIView):
 
         # Fetch all comments not authored by the current member, newest first,
         # with related data pre-loaded to avoid N+1 queries.
-        comments = (
+        # Scope to projects this member belongs to so they never see activity
+        # from projects they have not been added to.
+        project_ids = _member_project_ids(member)
+        comments_qs = (
             RfiComment.objects
             .exclude(author=member)
             .select_related("rfi", "rfi__project", "author")
             .order_by("-created_at")
         )
+        if project_ids is not None:
+            comments_qs = comments_qs.filter(rfi__project_id__in=project_ids)
+        comments = comments_qs
 
         # Group by RFI — the first comment we encounter per RFI is the latest.
         rfi_map = {}
@@ -1705,8 +2184,14 @@ class RfiMarkAllRead(APIView):
             RfiReadState.objects.filter(member=member).values_list("rfi_id", "last_read_at")
         )
 
+        # Scope to this member's projects only
+        project_ids = _member_project_ids(member)
+        mark_qs = RfiComment.objects.exclude(author=member).values("rfi_id", "created_at")
+        if project_ids is not None:
+            mark_qs = mark_qs.filter(rfi__project_id__in=project_ids)
+
         unread_rfi_ids = set()
-        for row in RfiComment.objects.exclude(author=member).values("rfi_id", "created_at"):
+        for row in mark_qs:
             rfi_id = row["rfi_id"]
             last_read = read_map.get(rfi_id)
             if last_read is None or row["created_at"] > last_read:
@@ -1972,6 +2457,66 @@ class ProjectMembershipDetail(APIView):
 
 # ── In-app Notifications ──────────────────────────────────────────────────────
 
+def _check_due_reminders(member):
+    """
+    Lazy check: called every time the notification bell polls.
+    Creates RFI_DUE_SOON notifications for any RFI due exactly 3 days from
+    today that the member is involved with, skipping duplicates.
+    """
+    due_date_target = date.today() + timedelta(days=3)
+
+    # Projects this member belongs to (or manages)
+    my_project_ids = list(
+        Project.objects.filter(
+            Q(members=member) | Q(project_manager=member)
+        ).values_list("id", flat=True).distinct()
+    )
+    if not my_project_ids:
+        return
+
+    active_statuses = ["open", "submitted", "under_review", "returned"]
+    rfis = (
+        Rfi.objects
+        .filter(
+            project_id__in=my_project_ids,
+            due_date=due_date_target,
+            status__in=active_statuses,
+        )
+        .select_related("project")
+        .prefetch_related("designers", "contract_administrators")
+    )
+
+    for rfi in rfis:
+        # Send reminder to designers and contract admins assigned to this RFI
+        recipients = set(
+            list(rfi.designers.all()) + list(rfi.contract_administrators.all())
+        )
+        for recipient in recipients:
+            already = Notification.objects.filter(
+                recipient=recipient,
+                verb=Notification.Verb.RFI_DUE_SOON,
+                extra__rfi_id=rfi.id,
+            ).exists()
+            if not already:
+                Notification.objects.create(
+                    recipient=recipient,
+                    verb=Notification.Verb.RFI_DUE_SOON,
+                    actor_name="System",
+                    project=rfi.project,
+                    extra={
+                        "rfi_id":          rfi.id,
+                        "rfi_slug":        rfi.slug,
+                        "rfi_number":      rfi.rfi_number,
+                        "rfi_name":        rfi.rfi_name,
+                        "project_id":      rfi.project.id,
+                        "project_number":  rfi.project.project_number,
+                        "project_name":    rfi.project.project_name,
+                        "due_date":        str(rfi.due_date),
+                        "days_remaining":  3,
+                    },
+                )
+
+
 class NotificationList(APIView):
     """
     GET  /api/notifications/           — list unread notifications for the caller
@@ -1983,6 +2528,10 @@ class NotificationList(APIView):
         member = getattr(request.user, "member", None)
         if not member:
             return Response([])
+
+        # Lazy due-date check: create any missing 3-day reminders before returning results
+        _check_due_reminders(member)
+
         qs = (
             Notification.objects
             .filter(recipient=member, read=False)

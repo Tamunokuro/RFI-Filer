@@ -35,8 +35,35 @@ function linkifySegment(text, keyBase) {
 
 // ── @mention rendering ────────────────────────────────────────────────────────
 
+// System tags that get rendered as pills instead of plain text
+const SYSTEM_TAGS = {
+  "[Returned to submitter]": {
+    label: "Returned to submitter",
+    cls: "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300",
+  },
+};
+
 function CommentBody({ text, memberNames = [] }) {
   if (!text) return null;
+
+  // Check if this comment starts with a system tag
+  for (const [tag, meta] of Object.entries(SYSTEM_TAGS)) {
+    if (text.startsWith(tag)) {
+      const rest = text.slice(tag.length).trimStart();
+      return (
+        <div className="mt-1.5 space-y-1.5">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.cls}`}>
+            {meta.label}
+          </span>
+          {rest && (
+            <p className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 break-words">
+              {rest}
+            </p>
+          )}
+        </div>
+      );
+    }
+  }
 
   let parts;
   if (memberNames.length > 0) {

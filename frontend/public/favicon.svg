@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Rounded square background -->
+  <rect width="32" height="32" rx="8" fill="#6366f1"/>
+  <!-- Subtle inner highlight for depth -->
+  <rect width="32" height="16" rx="8" fill="white" fill-opacity="0.06"/>
+  <!-- RF text -->
+  <text
+    x="16"
+    y="21.5"
+    font-family="ui-sans-serif, system-ui, -apple-system, sans-serif"
+    font-weight="700"
+    font-size="14"
+    fill="white"
+    text-anchor="middle"
+    letter-spacing="-0.5"
+  >RF</text>
+</svg>

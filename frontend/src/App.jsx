@@ -22,6 +22,8 @@ import MemberDetail from "./pages/MemberDetail";
 import TeamDirectory from "./pages/TeamDirectory";
 import EmailInbox from "./pages/EmailInbox";
 import Dashboard from "./pages/Dashboard";
+import Analytics from "./pages/Analytics";
+import SSOCallback from "./pages/SSOCallback";
 
 import Toaster from "./components/Toaster";
 import SessionWarningModal from "./components/SessionWarningModal";
@@ -95,6 +97,7 @@ function AppShell() {
         <Route path="/rfi/:pk/:slug/edit" element={<UpdateRfiForm />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/sso-callback" element={<SSOCallback />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
         <Route
@@ -145,6 +148,14 @@ function AppShell() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/analytics"
+          element={
+            <PrivateRoute>
+              <Analytics />
+            </PrivateRoute>
+          }
+        />
       </Routes>
     </>
   );
@@ -158,13 +169,27 @@ function App() {
 
   return (
     <ThemeProvider>
-      {/* Splash lives outside <Router> so it has no routing overhead,
-          but inside <ThemeProvider> so dark mode applies correctly. */}
-      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      {/* ── Background bubble circles — fixed to viewport, behind all content ── */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 overflow-hidden pointer-events-none"
+        style={{ zIndex: 0 }}
+      >
+        <div className="absolute -top-40 -right-40 h-[580px] w-[580px] rounded-full bg-indigo-400/20 dark:bg-indigo-500/20" />
+        <div className="absolute -bottom-36 -left-36 h-[480px] w-[480px] rounded-full bg-blue-400/15 dark:bg-blue-500/18" />
+        <div className="absolute top-1/2 -translate-y-1/2 -left-20 h-72 w-72 rounded-full bg-indigo-300/12 dark:bg-indigo-400/15" />
+      </div>
 
-      <Router>
-        <AppShell />
-      </Router>
+      {/* ── All app content sits above the circles ── */}
+      <div className="relative" style={{ zIndex: 1 }}>
+        {/* Splash lives outside <Router> so it has no routing overhead,
+            but inside <ThemeProvider> so dark mode applies correctly. */}
+        {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+
+        <Router>
+          <AppShell />
+        </Router>
+      </div>
     </ThemeProvider>
   );
 }

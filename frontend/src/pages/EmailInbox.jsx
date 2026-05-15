@@ -212,10 +212,9 @@ export default function EmailInbox() {
   const totalPages = Math.ceil(count / 20) || 1;
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-gray-950 flex flex-col">
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
       <Header />
-
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Page title */}
         <div className="mb-6">

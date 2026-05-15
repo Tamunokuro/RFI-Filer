@@ -86,8 +86,8 @@ const ProjectList = () => {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950">
-      <div className="container mx-auto p-4">
+    <div className="flex flex-col min-h-screen">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8">
         {/* Header with title and chat icon */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-indigo-900 dark:text-indigo-200">Project List</h1>

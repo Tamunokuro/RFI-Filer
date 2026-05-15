@@ -36,7 +36,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
+    <div className="min-h-screen">
     <div className="form-wrapper mt-10 max-w-md mx-auto p-6">
       <h1 className="text-3xl font-bold text-center text-blue-950 dark:text-indigo-200 mb-6">
         Forgot Password

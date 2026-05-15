@@ -1,7 +1,7 @@
 import { useAuth, canViewTeamDirectory } from "../context/Auth";
 import { useNavigate, Link } from "react-router-dom";
 import { PlusIcon, UserCircleIcon } from "@heroicons/react/20/solid";
-import { HomeIcon, FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon, InboxIcon, DocumentTextIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, FolderOpenIcon, ClipboardDocumentListIcon, SunIcon, MoonIcon, InboxIcon, DocumentTextIcon, UsersIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect, useRef } from "react";
 import NotificationBell from "./NotificationBell";
 import { useTheme } from "../context/Theme";
@@ -37,9 +37,14 @@ const Header = ({ title }) => {
 
   return (
     <div className="flex justify-between items-center my-5 relative">
-      <h2 className="form-title font-bold text-3xl text-indigo-950 dark:text-indigo-200">
-        {title || "RFI Filer"}
-      </h2>
+      <Link to="/" className="flex items-center gap-2.5 group">
+        <div className="h-8 w-8 rounded-xl bg-indigo-500 flex items-center justify-center shadow-sm group-hover:bg-indigo-600 transition-colors">
+          <span className="text-white font-bold text-xs tracking-tight select-none">RF</span>
+        </div>
+        <span className="font-bold text-xl text-indigo-950 dark:text-indigo-200 tracking-tight">
+          {title || "RFI Filer"}
+        </span>
+      </Link>
 
       <div className="flex items-center gap-4 relative" ref={dropdownRef}>
         {isAuthenticated && (
@@ -68,6 +73,10 @@ const Header = ({ title }) => {
                 <UsersIcon className="w-6 h-6" />
               </button>
             )}
+
+            <button onClick={() => navigate("/analytics")} className={iconBtn} title="Analytics">
+              <ChartBarIcon className="w-6 h-6" />
+            </button>
 
             <button onClick={() => navigate("/email-inbox")} className={iconBtn} title="Email Inbox">
               <InboxIcon className="w-6 h-6" />

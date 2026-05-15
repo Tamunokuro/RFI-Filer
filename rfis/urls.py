@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     ProjectListCreate, ProjectDetail,
     RfiListCreate, RfiDetail,
-    RfiPdfExport, RfiTransition,
+    RfiPdfExport, RfiTransition, RfiReturn,
     MemberListCreate, MemberDetail, MemberInvite,
     ProjectMembershipListCreate, ProjectMembershipDetail,
     ProjectMembers, ProjectMemberDetail, ProjectNextRfiNumber,
@@ -19,6 +19,9 @@ from .views import (
     ContractChangeList, ContractChangeDetail,
     NotificationList, NotificationMarkRead,
     DashboardView,
+    RfiWatcherList, RfiWatcherDetail,
+    RfiAuditLogView,
+    AnalyticsView,
 )
 
 app_name = "rfis"
@@ -54,6 +57,10 @@ urlpatterns = [
     path("rfis/<int:pk>/attachments/<int:attachment_id>/", RfiAttachmentDetail.as_view(), name="rfi-attachment-detail"),
     path("rfis/<int:pk>/revisions/", RfiRevisionList.as_view(), name="rfi-revisions"),
     path("rfis/<int:pk>/response-history/", OfficialResponseRevisionList.as_view(), name="rfi-response-history"),
+    path("rfis/<int:pk>/return/", RfiReturn.as_view(), name="rfi-return"),
+    path("rfis/<int:pk>/watchers/", RfiWatcherList.as_view(), name="rfi-watchers"),
+    path("rfis/<int:pk>/watchers/<int:member_id>/", RfiWatcherDetail.as_view(), name="rfi-watcher-detail"),
+    path("rfis/<int:pk>/audit-log/", RfiAuditLogView.as_view(), name="rfi-audit-log"),
     # rfis/urls.py
     path("rfis/<int:pk>/<slug:slug>/", RfiDetail.as_view(), name="rfi-detail-slug"),
 
@@ -73,6 +80,9 @@ urlpatterns = [
     # ----- In-app Notifications -----
     path("notifications/", NotificationList.as_view(), name="notification-list"),
     path("notifications/mark-read/", NotificationMarkRead.as_view(), name="notification-mark-read"),
+
+    # ----- Analytics -----
+    path("analytics/", AnalyticsView.as_view(), name="analytics"),
 
     # ----- AI -----
     path("ai/chat/", ChatGPTCompletion.as_view(), name="ai-chat"),

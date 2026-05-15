@@ -187,7 +187,7 @@ const Dashboard = () => {
   const goToRfi = (rfi) => navigate(`/rfi/${rfi.id}/${rfi.slug}`);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col">
       <div className="mx-auto w-full max-w-7xl px-6 py-8 space-y-6">
         <Header title="Dashboard" />
 

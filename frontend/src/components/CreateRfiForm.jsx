@@ -9,8 +9,10 @@ const CreateRfiForm = () => {
     loading,
     projects,
     projectMembers,
+    closedRfis,
     handleChange,
     handleProjectSelect,
+    handleParentRfiChange,
     handleDesignerChange,
     handleContractAdminChange,
     handleSubmit,
@@ -25,7 +27,7 @@ const CreateRfiForm = () => {
   );
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-950">
+    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl p-8">
         <h2 className="text-3xl font-bold text-left text-indigo-950 dark:text-indigo-200 mb-8">
           Create New RFI
@@ -89,6 +91,36 @@ const CreateRfiForm = () => {
               )}
             </div>
           ))}
+
+          {/* Supersedes (parent RFI) — shown only when closed RFIs exist for this project */}
+          {closedRfis.length > 0 && (
+            <div>
+              <label
+                htmlFor="parent_rfi"
+                className="block text-sm/6 font-medium text-gray-900 dark:text-gray-100"
+              >
+                Supersedes <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>
+              </label>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                Select a previously closed RFI that this revision supersedes.
+                The RFI number will be updated to a .1, .2, etc. suffix.
+              </p>
+              <select
+                id="parent_rfi"
+                name="parent_rfi"
+                value={formData.parent_rfi}
+                onChange={e => handleParentRfiChange(e.target.value)}
+                className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+              >
+                <option value="">— None (new RFI) —</option>
+                {closedRfis.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.rfi_number}: {r.rfi_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Designers */}
           <div>

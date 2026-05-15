@@ -150,7 +150,7 @@ const RfiList = () => {
     },
     under_review: {
       label: "Under Review",
-      cls: "bg-amber-100 text-amber-800 w-full text-center justify-center",
+      cls: "bg-amber-100 text-amber-800 whitespace-nowrap",
     },
     responded: { label: "Responded", cls: "bg-purple-100 text-purple-800" },
     closed: { label: "Closed", cls: "bg-gray-100 text-gray-700" },
@@ -215,7 +215,7 @@ const RfiList = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+      <div className="min-h-screen flex flex-col">
         <div className="mx-auto w-full max-w-7xl px-6 py-8">
           <Header title="RFI List" />
           <p className="text-center text-gray-500 dark:text-gray-400 py-8">
@@ -228,7 +228,7 @@ const RfiList = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col">
       <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <Header title="RFI List" />
 

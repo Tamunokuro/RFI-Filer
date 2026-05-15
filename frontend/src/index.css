@@ -7,12 +7,11 @@
 html,
 body {
   font-family: "Outfit", sans-serif;
+  background-color: #f8fafc; /* slate-50 */
 }
 
-/* Ensure the html root itself is dark when dark mode is active,
-   so no white browser-background bleeds through at edges or before
-   React renders its own background. */
-html.dark {
+html.dark,
+html.dark body {
   background-color: #030712; /* gray-950 */
 }
 
