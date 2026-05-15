@@ -865,6 +865,11 @@ class RfiListCreate(APIView):
                 Q(contract_administrators__name__icontains=term)
             ).distinct()
 
+        if request.query_params.get("due_this_week"):
+            today    = date.today()
+            week_end = today + timedelta(days=7)
+            qs = qs.filter(due_date__gte=today, due_date__lte=week_end)
+
         paginator = StandardPagination()
         page = paginator.paginate_queryset(qs.order_by("-received_date", "-id"), request)
         serializer = RfiSerializer(page, many=True)

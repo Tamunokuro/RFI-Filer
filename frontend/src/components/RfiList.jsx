@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api";
 import { ACCESS_TOKEN } from "../constants";
 import Footer from "./Footer";
@@ -10,6 +10,8 @@ import {
   ArrowDownTrayIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CalendarDaysIcon,
+  XMarkIcon,
 } from "@heroicons/react/20/solid";
 import Header from "./Header";
 import { exportRfisToExcel } from "../utils/exportRfisToExcel";
@@ -24,6 +26,9 @@ const formatUnreadCount = (count) => {
 
 const RfiList = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dueThisWeek = searchParams.get("due_this_week") === "true";
+
   const [rfis, setRfis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,13 +52,13 @@ const RfiList = () => {
     const fetchRfis = async () => {
       setFetching(true);
       try {
-        const response = await api.get("/api/rfis/", {
-          params: {
-            page,
-            search: searchTerm,
-            status: "open,submitted,under_review,responded",
-          },
-        });
+        const params = {
+          page,
+          search: searchTerm,
+          status: "open,submitted,under_review,responded",
+        };
+        if (dueThisWeek) params.due_this_week = "true";
+        const response = await api.get("/api/rfis/", { params });
         setRfis(response.data.results);
         setNext(response.data.next);
         setPrev(response.data.previous);
@@ -68,7 +73,7 @@ const RfiList = () => {
     };
 
     fetchRfis();
-  }, [navigate, page, searchTerm]);
+  }, [navigate, page, searchTerm, dueThisWeek]);
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_TOKEN);
@@ -98,13 +103,13 @@ const RfiList = () => {
       let pg = 1;
       let hasNext = true;
       while (hasNext) {
-        const res = await api.get("/api/rfis/", {
-          params: {
-            page: pg,
-            search: searchTerm,
-            status: "open,submitted,under_review,responded",
-          },
-        });
+        const exportParams = {
+          page: pg,
+          search: searchTerm,
+          status: "open,submitted,under_review,responded",
+        };
+        if (dueThisWeek) exportParams.due_this_week = "true";
+        const res = await api.get("/api/rfis/", { params: exportParams });
         allRfis.push(...res.data.results);
         hasNext = !!res.data.next;
         pg++;
@@ -254,6 +259,24 @@ const RfiList = () => {
             />
           </div>
         </div>
+
+        {/* Due-this-week filter banner */}
+        {dueThisWeek && (
+          <div className="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+              <CalendarDaysIcon className="h-4 w-4 shrink-0" />
+              Showing RFIs due within the next 7 days
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/rfis")}
+              className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors"
+            >
+              <XMarkIcon className="h-3.5 w-3.5" />
+              Clear filter
+            </button>
+          </div>
+        )}
 
         {/* Export button — right-aligned below search */}
         <div className="flex justify-end mb-4">
