@@ -110,9 +110,25 @@ const MemberDetail = () => {
   });
 
   const openEditForm = () => {
-    setEditForm({ name: member.name || "", email: member.email || "" });
+    setEditForm({
+      name: member.name || "",
+      email: member.email || "",
+      email_notifications: member.email_notifications ?? true,
+    });
     setEditErrors({});
     setEditOpen(true);
+  };
+
+  const handleToggleEmailNotifications = async () => {
+    const newVal = !(member.email_notifications ?? true);
+    try {
+      const res = await api.patch("/api/me/", { email_notifications: newVal });
+      const updated = res.data.member;
+      setMember(prev => ({ ...prev, email_notifications: updated.email_notifications }));
+      toast.success(newVal ? "Email notifications enabled." : "Email notifications disabled.");
+    } catch {
+      toast.error("Failed to update notification preference.");
+    }
   };
 
   const handleEditSave = async (e) => {
@@ -155,7 +171,7 @@ const MemberDetail = () => {
 
   if (!member) {
     return (
-      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+      <div className="min-h-screen flex flex-col">
         <div className="mx-auto w-full max-w-6xl px-6 py-8">
           <Header title="Profile" />
           <p className="text-gray-500 dark:text-gray-400">Loading…</p>
@@ -173,7 +189,7 @@ const MemberDetail = () => {
   }).length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col">
       <div className="mx-auto w-full max-w-6xl px-6 py-8 space-y-8">
         <Header title="Profile" />
 
@@ -260,6 +276,31 @@ const MemberDetail = () => {
                           : editErrors.email}
                       </p>
                     )}
+                  </div>
+
+                  {/* Email notification toggle */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email Notifications
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        Receive emails for RFI assignments, responses, mentions, etc.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm(f => ({ ...f, email_notifications: !f.email_notifications }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        editForm.email_notifications ? "bg-indigo-600" : "bg-gray-300 dark:bg-gray-600"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          editForm.email_notifications ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
                   </div>
 
                   {/* Non-field errors */}

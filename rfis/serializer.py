@@ -3,7 +3,7 @@ from rest_framework import serializers
 from .models import (
     Rfi, Project, Member, ProjectMembership, RfiComment, RfiReadState,
     RfiAttachment, RfiRevision, OfficialResponseRevision, ContractChange,
-    RfiCommentAttachment,
+    RfiCommentAttachment, RfiWatcher,
 )
 from .notifications import notify_rfi_assigned
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -81,18 +81,22 @@ class RegisterSerializer(serializers.ModelSerializer):
 class MemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = Member
-        fields = "__all__"
+        fields = [
+            "id", "user", "name", "email", "company", "discipline",
+            "role", "phone", "is_admin", "date_joined", "email_notifications",
+        ]
         extra_kwargs = {
-            "user": {"read_only": True},  # set from request if you expose create member API
+            "user": {"read_only": True},
+            "date_joined": {"read_only": True},
         }
 
 
 class MemberProfileUpdateSerializer(serializers.ModelSerializer):
-    """Allows a member to update only their own name and email."""
+    """Allows a member to update only their own name, email and notification prefs."""
 
     class Meta:
         model = Member
-        fields = ["name", "email"]
+        fields = ["name", "email", "email_notifications"]
 
     def validate_name(self, value):
         if not value or not value.strip():
@@ -135,6 +139,38 @@ class RfiSerializer(serializers.ModelSerializer):
     responded_by_name = serializers.CharField(source="responded_by.name", read_only=True, default="")
     official_response_attachments = serializers.SerializerMethodField()
 
+    # Revision lineage
+    parent_rfi = serializers.PrimaryKeyRelatedField(
+        queryset=Rfi.objects.all(), required=False, allow_null=True
+    )
+    parent_rfi_number = serializers.CharField(
+        source="parent_rfi.rfi_number", read_only=True, default=""
+    )
+    parent_rfi_name = serializers.CharField(
+        source="parent_rfi.rfi_name", read_only=True, default=""
+    )
+    parent_rfi_slug = serializers.CharField(
+        source="parent_rfi.slug", read_only=True, default=""
+    )
+    child_rfi_count = serializers.SerializerMethodField()
+    child_rfis = serializers.SerializerMethodField()
+
+    def get_child_rfi_count(self, obj):
+        return obj.child_rfis.count()
+
+    def get_child_rfis(self, obj):
+        """Return minimal data for each child (revision) RFI."""
+        return [
+            {
+                "id":         c.id,
+                "rfi_number": c.rfi_number,
+                "rfi_name":   c.rfi_name,
+                "slug":       c.slug,
+                "status":     c.status,
+            }
+            for c in obj.child_rfis.order_by("rfi_number")
+        ]
+
     def get_official_response_attachments(self, obj):
         qs = obj.attachments.filter(is_official_response=True)
         return RfiAttachmentSerializer(qs, many=True, context=self.context).data
@@ -153,11 +189,18 @@ class RfiSerializer(serializers.ModelSerializer):
             "slug",
             "status", "official_response", "responded_by", "responded_by_name",
             "responded_at", "closed_at", "official_response_attachments",
+            "return_note",
+            "parent_rfi", "parent_rfi_number", "parent_rfi_name", "parent_rfi_slug",
+            "child_rfi_count", "child_rfis",
+            "escalated",
         ]
         read_only_fields = [
             "id", "slug", "author",
             "status", "official_response", "responded_by", "responded_by_name",
             "responded_at", "closed_at", "official_response_attachments",
+            "return_note",
+            "parent_rfi_number", "parent_rfi_name", "parent_rfi_slug",
+            "child_rfi_count", "child_rfis", "escalated",
         ]
 
     def _validate_project_members(self, project, members, field_name):

@@ -258,8 +258,8 @@ const ContractChanges = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-      <div className="container mx-auto px-4 py-6">
+    <div className="min-h-screen flex flex-col">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <Header title="Contract Changes" />
 
         {/* Toolbar */}

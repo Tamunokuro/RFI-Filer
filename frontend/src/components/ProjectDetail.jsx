@@ -145,8 +145,8 @@ const ProjectDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-        <div className="container mx-auto px-4 py-6">
+      <div className="min-h-screen flex flex-col">
+        <div className="mx-auto w-full max-w-7xl px-6 py-8">
           <Header title="Project" />
           <p className="text-gray-500 dark:text-gray-400 mt-4">Loading project…</p>
         </div>
@@ -157,8 +157,8 @@ const ProjectDetail = () => {
 
   if (error || !project) {
     return (
-      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-        <div className="container mx-auto px-4 py-6">
+      <div className="min-h-screen flex flex-col">
+        <div className="mx-auto w-full max-w-7xl px-6 py-8">
           <Header title="Project" />
           <p className="text-red-600 dark:text-red-400 mt-4">{error || "Project not found."}</p>
         </div>
@@ -175,8 +175,8 @@ const ProjectDetail = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-      <div className="container mx-auto px-4 py-6 space-y-5">
+    <div className="min-h-screen flex flex-col">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8 space-y-5">
         <Header title={project.project_number} />
 
         {/* Project summary card */}

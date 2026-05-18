@@ -96,8 +96,8 @@ const TeamDirectory = () => {
   }, [members, search, roleFilter]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
-      <div className="container mx-auto px-4 py-6 space-y-5">
+    <div className="min-h-screen flex flex-col">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8 space-y-5">
         <Header title="Team" />
 
         {/* Top bar */}

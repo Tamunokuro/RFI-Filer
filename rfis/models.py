@@ -32,6 +32,10 @@ class Member(models.Model):
     role = models.CharField(max_length=50, choices=Role.choices)
     phone = models.CharField(max_length=20, blank=True)
     date_joined = models.DateTimeField(auto_now_add=True)
+    email_notifications = models.BooleanField(
+        default=True,
+        help_text="Receive email notifications for RFI activity.",
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.role} - {self.email} - {self.company}"
@@ -90,6 +94,7 @@ class Rfi(models.Model):
         SUBMITTED    = "submitted",    "Submitted"
         UNDER_REVIEW = "under_review", "Under Review"
         RESPONDED    = "responded",    "Responded"
+        RETURNED     = "returned",     "Returned to Submitter"
         CLOSED       = "closed",       "Closed"
 
     class Priority(models.TextChoices):
@@ -138,6 +143,15 @@ class Rfi(models.Model):
         default=Priority.MEDIUM,
         help_text="Urgency level for this RFI: Low, Medium, High, or Critical.",
     )
+    # ── Revision lineage ─────────────────────────────────────────────────────
+    # When an RFI is created as a revision of a previously closed one (e.g.
+    # RFI-003 → RFI-003.1), parent_rfi stores the FK to the original.
+    parent_rfi = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="child_rfis",
+        help_text="Closed RFI that this revision supersedes.",
+    )
+
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.OPEN)
     official_response = models.TextField(blank=True)
     responded_by = models.ForeignKey(
@@ -145,6 +159,19 @@ class Rfi(models.Model):
     )
     responded_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
+
+    # ── Return-to-submitter ───────────────────────────────────────────────────
+    return_note = models.TextField(
+        blank=True,
+        help_text="Reason provided when the RFI is returned to the submitter.",
+    )
+
+    # ── Overdue escalation ────────────────────────────────────────────────────
+    escalated = models.BooleanField(
+        default=False,
+        help_text="Set when the overdue-escalation management command runs; "
+                  "prevents duplicate escalations.",
+    )
 
     def __str__(self):
         return f"{self.project.project_number} - {self.rfi_number} - {self.rfi_name}"
@@ -231,6 +258,52 @@ class RfiCommentAttachment(models.Model):
 
     def __str__(self):
         return f"{self.original_filename} on comment {self.comment_id}"
+
+
+class RfiWatcher(models.Model):
+    """
+    Members who are CC'd on an RFI and want to be notified of all activity
+    (comments, status changes, official responses) without being a designer
+    or contract administrator.
+    """
+    rfi    = models.ForeignKey(Rfi,    on_delete=models.CASCADE, related_name="watchers")
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="watched_rfis")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("rfi", "member")
+        ordering = ["added_at"]
+
+    def __str__(self):
+        return f"{self.member.name} watching RFI {self.rfi_id}"
+
+
+class AuditLog(models.Model):
+    """
+    Immutable record of every significant action taken on an RFI.
+
+    ``actor``  — the Member who performed the action (null if account deleted).
+    ``action`` — a short machine-readable verb, e.g. "status_changed",
+                 "comment_added", "returned_to_submitter", etc.
+    ``detail`` — free JSON for extra context (before/after values, notes, …).
+    """
+    rfi    = models.ForeignKey(Rfi,    on_delete=models.CASCADE,  related_name="audit_logs")
+    actor  = models.ForeignKey(
+        Member, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="audit_logs",
+    )
+    action    = models.CharField(max_length=60, db_index=True)
+    detail    = models.JSONField(default=dict, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+        verbose_name = "Audit Log Entry"
+        verbose_name_plural = "Audit Log"
+
+    def __str__(self):
+        actor = self.actor.name if self.actor else "System"
+        return f"[{self.action}] {actor} on RFI {self.rfi_id} at {self.timestamp:%Y-%m-%d %H:%M}"
 
 
 class RfiReadState(models.Model):
@@ -414,11 +487,17 @@ class Notification(models.Model):
     """
 
     class Verb(models.TextChoices):
-        PROJECT_ADDED   = "project_added",   "Added to project"
-        PROJECT_REMOVED = "project_removed", "Removed from project"
-        RFI_ASSIGNED    = "rfi_assigned",    "Assigned to RFI"
-        RFI_DUE_SOON    = "rfi_due_soon",    "RFI due soon"
-        MENTIONED       = "mentioned",       "Mentioned in comment"
+        PROJECT_ADDED     = "project_added",     "Added to project"
+        PROJECT_REMOVED   = "project_removed",   "Removed from project"
+        RFI_ASSIGNED      = "rfi_assigned",      "Assigned to RFI"
+        RFI_DUE_SOON      = "rfi_due_soon",      "RFI due soon"
+        MENTIONED         = "mentioned",         "Mentioned in comment"
+        RFI_RETURNED      = "rfi_returned",      "RFI returned to submitter"
+        OFFICIAL_RESPONSE = "official_response", "Official response submitted"
+        RFI_STATUS_CHANGE = "rfi_status_change", "RFI status changed"
+        WATCHER_ACTIVITY  = "watcher_activity",  "RFI activity (watching)"
+        RFI_OVERDUE       = "rfi_overdue",       "RFI overdue"
+        RFI_COMMENT       = "rfi_comment",       "New comment on RFI"
 
     recipient  = models.ForeignKey(
         Member, on_delete=models.CASCADE, related_name="notifications",

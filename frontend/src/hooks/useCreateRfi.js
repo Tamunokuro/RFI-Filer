@@ -30,6 +30,7 @@ const useCreateRfi = () => {
     spec_section:      "",
     spec_section_title: "",
     attachments: null,         // FileList or Array from <input type="file" multiple>
+    parent_rfi: "",            // ID of a closed RFI this supersedes (optional)
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -38,6 +39,7 @@ const useCreateRfi = () => {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
   const [projectMembers, setProjectMembers] = useState([]);
+  const [closedRfis, setClosedRfis] = useState([]); // closed RFIs for "supersedes" picker
 
   // Load projects
   useEffect(() => {
@@ -103,9 +105,10 @@ const useCreateRfi = () => {
 
     if (projectId) {
       try {
-        const [membersRes, nextRfiRes] = await Promise.all([
+        const [membersRes, nextRfiRes, closedRes] = await Promise.all([
           api.get(`/api/projects/${projectId}/members/`),
           api.get(`/api/projects/${projectId}/next-rfi-number/`),
+          api.get(`/api/rfis/?project=${projectId}&status=closed&page_size=200`),
         ]);
         // Normalize ProjectMembership objects → { id, name, role } for AssigneePicker
         const rawMembers = Array.isArray(membersRes.data) ? membersRes.data : [];
@@ -120,11 +123,30 @@ const useCreateRfi = () => {
         setFormData((prev) => ({
           ...prev,
           rfi_number: nextRfiRes.data.next_rfi_number ?? "",
+          parent_rfi: "",
         }));
+        // Closed RFIs for the "supersedes" picker
+        const closedList = closedRes.data?.results ?? closedRes.data ?? [];
+        setClosedRfis(Array.isArray(closedList) ? closedList : []);
       } catch {
         setProjectMembers([]);
+        setClosedRfis([]);
       }
+    } else {
+      setClosedRfis([]);
     }
+  };
+
+  // When parent_rfi changes, fetch the revision number suggestion
+  const handleParentRfiChange = async (parentId) => {
+    setFormData(prev => ({ ...prev, parent_rfi: parentId }));
+    if (!parentId || !formData.project) return;
+    try {
+      const { data } = await api.get(
+        `/api/projects/${formData.project}/next-rfi-number/?parent_rfi_id=${parentId}`
+      );
+      setFormData(prev => ({ ...prev, rfi_number: data.next_rfi_number ?? prev.rfi_number }));
+    } catch { /* silently ignore */ }
   };
 
   // Generic field handler + multi-select support
@@ -221,6 +243,7 @@ const useCreateRfi = () => {
       drawing_title:     formData.drawing_title     || "",
       spec_section:      formData.spec_section      || "",
       spec_section_title: formData.spec_section_title || "",
+      ...(formData.parent_rfi ? { parent_rfi: Number(formData.parent_rfi) } : {}),
     };
 
     try {
@@ -296,8 +319,10 @@ const useCreateRfi = () => {
     loading,
     projects,
     projectMembers,
+    closedRfis,
     handleChange,
     handleProjectSelect,
+    handleParentRfiChange,
     handleDesignerChange,
     handleContractAdminChange,
     handleSubmit,

@@ -98,11 +98,27 @@ function KpiCard({ label, value, Icon, accent, onClick }) {
     orange: "text-orange-700 dark:text-orange-300",
   };
 
+  const base = `text-left w-full rounded-xl border ${accentMap[accent]} bg-white dark:bg-gray-800 p-5 shadow-sm transition-shadow`;
+
+  if (!onClick) {
+    return (
+      <div className={base}>
+        <div className="flex items-start justify-between">
+          <Icon className={`h-6 w-6 ${iconMap[accent]} opacity-40`} />
+        </div>
+        <p className={`mt-3 text-4xl font-bold tracking-tight ${numMap[accent]} opacity-40`}>
+          {value ?? "—"}
+        </p>
+        <p className="mt-1 text-sm font-medium text-gray-400 dark:text-gray-500">{label}</p>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group text-left w-full rounded-xl border ${accentMap[accent]} bg-white dark:bg-gray-800 p-5 shadow-sm hover:shadow-md transition-shadow`}
+      className={`group ${base} hover:shadow-md`}
     >
       <div className="flex items-start justify-between">
         <Icon className={`h-6 w-6 ${iconMap[accent]}`} />
@@ -187,7 +203,7 @@ const Dashboard = () => {
   const goToRfi = (rfi) => navigate(`/rfi/${rfi.id}/${rfi.slug}`);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col">
       <div className="mx-auto w-full max-w-7xl px-6 py-8 space-y-6">
         <Header title="Dashboard" />
 
@@ -224,7 +240,7 @@ const Dashboard = () => {
                 value={data.stats.due_this_week}
                 Icon={CalendarDaysIcon}
                 accent="amber"
-                onClick={() => navigate("/rfis")}
+                onClick={data.stats.due_this_week > 0 ? () => navigate("/rfis?due_this_week=true") : null}
               />
               <KpiCard
                 label="Critical Priority"

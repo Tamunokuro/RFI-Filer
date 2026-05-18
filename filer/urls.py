@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from rfis import sso_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -16,6 +17,12 @@ urlpatterns = [
     path("api-auth/", include("rest_framework.urls")),
     path("api/", include("rfis.urls")),
     path("api/email/", include("email_ingestion.urls")),
+
+    # ── SSO (OAuth2) ───────────────────────────────────────────────────────────
+    path("api/auth/start/google/",       sso_views.google_start,       name="sso-google-start"),
+    path("api/auth/callback/google/",    sso_views.google_callback,    name="sso-google-callback"),
+    path("api/auth/start/microsoft/",    sso_views.microsoft_start,    name="sso-microsoft-start"),
+    path("api/auth/callback/microsoft/", sso_views.microsoft_callback, name="sso-microsoft-callback"),
 ]
 
 if settings.DEBUG:

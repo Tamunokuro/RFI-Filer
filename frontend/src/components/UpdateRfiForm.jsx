@@ -133,7 +133,7 @@ const UpdateRfiForm = () => {
   );
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-950">
+    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl p-8 shadow">
         <h2 className="text-2xl font-bold text-indigo-950 dark:text-indigo-200 mb-6">Update RFI</h2>
 
