@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import api from "../api";
 import Footer from "./Footer";
@@ -10,6 +10,7 @@ import RfiRevisionHistory from "./RfiRevisionHistory";
 import ContractChangesPanel from "./ContractChangesPanel";
 import { useAuth, canEditRfi } from "../context/Auth";
 import toast from "../toast";
+import { PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/20/solid";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
 
@@ -80,6 +81,10 @@ function auditDescription(action, detail = {}, actorName = "") {
       return detail.assignee
         ? `${detail.assignee} was assigned to this RFI`
         : `${who} updated assignments`;
+    case "name_changed":
+      return detail.old && detail.new
+        ? `${who} renamed this RFI from "${detail.old}" to "${detail.new}"`
+        : `${who} renamed this RFI`;
     default:
       // Graceful fallback: humanise the action key
       return `${who} — ${action.replace(/_/g, " ")}`;
@@ -195,6 +200,12 @@ const RfiDetail = () => {
   const [auditLog, setAuditLog]           = useState([]);
   const [auditLoaded, setAuditLoaded]     = useState(false);
 
+  // Inline name editing
+  const [editingName, setEditingName]   = useState(false);
+  const [nameValue, setNameValue]       = useState("");
+  const [nameSaving, setNameSaving]     = useState(false);
+  const nameInputRef                    = useRef(null);
+
   const loadRfi = async () => {
     try {
       const { data } = await api.get(`/api/rfis/${pk}/`);
@@ -236,6 +247,36 @@ const RfiDetail = () => {
     loadAuditLog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfi?.project]);
+
+  const startEditingName = useCallback(() => {
+    setNameValue(rfi.rfi_name);
+    setEditingName(true);
+    // Focus happens via useEffect below
+  }, [rfi]);
+
+  useEffect(() => {
+    if (editingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [editingName]);
+
+  const handleSaveName = async () => {
+    const trimmed = nameValue.trim();
+    if (!trimmed || trimmed === rfi.rfi_name) { setEditingName(false); return; }
+    setNameSaving(true);
+    try {
+      const { data } = await api.patch(`/api/rfis/${pk}/rename/`, { rfi_name: trimmed });
+      setRfi(data);
+      setEditingName(false);
+      loadAuditLog();
+      toast.success("RFI name updated.");
+    } catch (err) {
+      toast.error(err.response?.data?.rfi_name?.[0] || "Failed to rename RFI.");
+    } finally {
+      setNameSaving(false);
+    }
+  };
 
   const handleReturn = async (note) => {
     setReturning(true);
@@ -374,11 +415,60 @@ const RfiDetail = () => {
 
         <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                {rfi.rfi_name}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="min-w-0 flex-1">
+              {editingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={nameInputRef}
+                    value={nameValue}
+                    onChange={e => setNameValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleSaveName();
+                      if (e.key === "Escape") setEditingName(false);
+                    }}
+                    disabled={nameSaving}
+                    className="text-xl font-semibold text-gray-900 dark:text-gray-100
+                               bg-transparent border-b-2 border-indigo-500 focus:outline-none
+                               w-full min-w-0 disabled:opacity-60"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={nameSaving || !nameValue.trim()}
+                    title="Save"
+                    className="shrink-0 p-1 rounded text-indigo-600 dark:text-indigo-400
+                               hover:bg-indigo-50 dark:hover:bg-indigo-900/30
+                               disabled:opacity-40 transition"
+                  >
+                    <CheckIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setEditingName(false)}
+                    disabled={nameSaving}
+                    title="Cancel"
+                    className="shrink-0 p-1 rounded text-gray-400 hover:text-gray-600
+                               dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700
+                               disabled:opacity-40 transition"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="group flex items-center gap-2">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    {rfi.rfi_name}
+                  </h2>
+                  <button
+                    onClick={startEditingName}
+                    title="Rename RFI"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400
+                               hover:text-indigo-600 dark:hover:text-indigo-400
+                               hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 {rfi.project_number} — {rfi.project_name}
               </p>
             </div>

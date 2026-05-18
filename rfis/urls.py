@@ -21,6 +21,7 @@ from .views import (
     DashboardView,
     RfiWatcherList, RfiWatcherDetail,
     RfiAuditLogView,
+    RfiRenameView,
     AnalyticsView,
 )
 
@@ -60,6 +61,7 @@ urlpatterns = [
     path("rfis/<int:pk>/return/", RfiReturn.as_view(), name="rfi-return"),
     path("rfis/<int:pk>/watchers/", RfiWatcherList.as_view(), name="rfi-watchers"),
     path("rfis/<int:pk>/watchers/<int:member_id>/", RfiWatcherDetail.as_view(), name="rfi-watcher-detail"),
+    path("rfis/<int:pk>/rename/", RfiRenameView.as_view(), name="rfi-rename"),
     path("rfis/<int:pk>/audit-log/", RfiAuditLogView.as_view(), name="rfi-audit-log"),
     # rfis/urls.py
     path("rfis/<int:pk>/<slug:slug>/", RfiDetail.as_view(), name="rfi-detail-slug"),

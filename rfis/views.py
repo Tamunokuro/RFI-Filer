@@ -1330,6 +1330,42 @@ class RfiWatcherDetail(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# ---------- Rename ----------
+
+class RfiRenameView(APIView):
+    """
+    PATCH /api/rfis/<pk>/rename/
+
+    Renames an RFI regardless of its current status (mirrors ACC behaviour).
+    Writes a ``name_changed`` audit-log entry recording the old and new names.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        member = getattr(request.user, "member", None)
+        project_ids = _member_project_ids(member)
+        qs = Rfi.objects.all()
+        if project_ids is not None:
+            qs = qs.filter(project_id__in=project_ids)
+        rfi = get_object_or_404(qs, pk=pk)
+
+        new_name = (request.data.get("rfi_name") or "").strip()
+        if not new_name:
+            return Response(
+                {"rfi_name": ["Name cannot be blank."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_name = rfi.rfi_name
+        if old_name == new_name:
+            return Response(RfiSerializer(rfi).data)
+
+        rfi.rfi_name = new_name
+        rfi.save(update_fields=["rfi_name"])
+        _audit(rfi, member, "name_changed", old=old_name, new=new_name)
+        return Response(RfiSerializer(rfi).data)
+
+
 # ---------- Audit Log ----------
 
 class RfiAuditLogView(APIView):
