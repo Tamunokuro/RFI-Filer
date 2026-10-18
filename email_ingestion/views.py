@@ -250,6 +250,16 @@ class ApproveEmailView(APIView):
             rfi.due_date = due_date
             rfi.save(update_fields=["due_date"])
 
+        # Assign designers / contract admins if the reviewer picked any
+        # (validated to Member instances by the serializer).
+        # auto_create_rfi leaves both empty.
+        designers = validated.get("designer_ids")
+        if designers:
+            rfi.designers.set(designers)
+        contract_admins = validated.get("contract_admin_ids")
+        if contract_admins:
+            rfi.contract_administrators.set(contract_admins)
+
         # Mark as manually approved (auto_create_rfi sets AUTO_CREATED)
         inbound.refresh_from_db()
         inbound.status = InboundEmail.Status.APPROVED

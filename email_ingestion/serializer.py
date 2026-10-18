@@ -145,6 +145,18 @@ class ApproveEmailSerializer(serializers.Serializer):
     question = serializers.CharField(required=False, allow_blank=True)
     trade = serializers.CharField(max_length=10, required=False, allow_blank=True)
     due_date = serializers.DateField(required=False, allow_null=True)
+    designer_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+        help_text="Member IDs (Project Designers) to assign to the created RFI.",
+    )
+    contract_admin_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        default=list,
+        help_text="Member IDs (Contract Administrators) to assign to the created RFI.",
+    )
 
     def validate_project_id(self, value):
         from rfis.models import Project
@@ -152,6 +164,27 @@ class ApproveEmailSerializer(serializers.Serializer):
             return Project.objects.get(pk=value)
         except Project.DoesNotExist:
             raise serializers.ValidationError(f"Project with id={value} does not exist.")
+
+    def _resolve_members(self, value):
+        """Resolve a list of member ids to Member instances, rejecting any
+        that don't exist. Shared by the designer and contract-admin fields."""
+        from rfis.models import Member
+        if not value:
+            return []
+        members = list(Member.objects.filter(pk__in=value))
+        found = {m.pk for m in members}
+        missing = [i for i in value if i not in found]
+        if missing:
+            raise serializers.ValidationError(
+                f"Member(s) not found: {', '.join(map(str, missing))}."
+            )
+        return members
+
+    def validate_designer_ids(self, value):
+        return self._resolve_members(value)
+
+    def validate_contract_admin_ids(self, value):
+        return self._resolve_members(value)
 
 
 # ---------------------------------------------------------------------------

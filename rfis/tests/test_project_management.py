@@ -8,7 +8,9 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from rfis.models import Member, Project, ProjectMembership
+from datetime import date
+
+from rfis.models import Member, Project, ProjectMembership, Rfi
 
 from .utils import _make_user_member
 
@@ -58,6 +60,32 @@ class ProjectManagementTests(APITestCase):
             "project_manager": self.pm_member.id,
         })
         self.assertEqual(r.status_code, 201)
+
+    # ── rfi_count accuracy ──────────────────────────────────────────────────────
+
+    def test_pm_project_rfi_count_not_inflated_by_members(self):
+        """A PM listing projects they manage must see the true RFI count, not
+        one multiplied by the number of project members (Count join bug)."""
+        project = Project.objects.create(
+            project_number="CNT-1", project_name="Count Project",
+            project_manager=self.pm_member,
+        )
+        # PM + three other members all belong to the project.
+        for m in (self.pm_member, self.contractor_member, self.designer_member):
+            ProjectMembership.objects.create(project=project, member=m, role=m.role)
+
+        # Exactly two RFIs on the project.
+        for n in range(2):
+            Rfi.objects.create(
+                project=project, author=self.pm_user, rfi_number=f"CNT-1-{n}",
+                rfi_name=f"R{n}", trade="M",
+                received_date=date.today(), due_date=date.today(),
+            )
+
+        self.client.force_authenticate(self.pm_user)
+        resp = self.client.get(reverse("rfis:project-list"))
+        proj = next(p for p in resp.data if p["project_number"] == "CNT-1")
+        self.assertEqual(proj["rfi_count"], 2)
 
     def test_contractor_cannot_create_project(self):
         self.client.force_authenticate(self.contractor_user)

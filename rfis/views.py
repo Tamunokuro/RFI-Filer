@@ -369,7 +369,15 @@ class ProjectListCreate(APIView):
         # optional search ?q=
         q = request.query_params.get("q", "")
 
-        base_qs = Project.objects.annotate(rfi_count=Count("rfis")).select_related("project_manager")
+        # distinct=True is essential: the member-scoping filter below LEFT-JOINs
+        # the membership table, and for projects the user manages the OR clause
+        # matches every membership row — without distinct, Count("rfis") would be
+        # multiplied by the number of project members.
+        base_qs = (
+            Project.objects
+            .annotate(rfi_count=Count("rfis", distinct=True))
+            .select_related("project_manager")
+        )
 
         if member and member.is_admin:
             # Admins see every project
@@ -637,7 +645,7 @@ class ProjectDetail(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self, pk):
-        return get_object_or_404(Project.objects.annotate(rfi_count=Count("rfis")).select_related("project_manager"), pk=pk)
+        return get_object_or_404(Project.objects.annotate(rfi_count=Count("rfis", distinct=True)).select_related("project_manager"), pk=pk)
 
     def get(self, request, pk):
         proj = self.get_object(pk)
