@@ -1,0 +1,51 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Anywhereworks//Setmore//EN
+METHOD:REQUEST
+BEGIN:VTIMEZONE
+TZID:America/Winnipeg
+TZURL:http://tzurl.org/zoneinfo-outlook/America/Winnipeg
+X-LIC-LOCATION:America/Winnipeg
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0600
+TZOFFSETTO:-0500
+TZNAME:CDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0600
+TZNAME:CST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+X-WR-TIMEZONE:America/Winnipeg
+BEGIN:VEVENT
+UID:763e3cde-1dfe-4662-bf71-3fec85d00631
+SEQUENCE:0
+DTSTAMP:20260807T210338
+DTSTART:20260808T210000Z
+DTEND:20260808T214000Z
+SUMMARY:Beard With Haircut Session with Ay Blendz
+TRANSP:OPAQUE
+LOCATION:Unit G - 2810 Pembina hwy Winnipeg Manitoba R3T 2H8
+DESCRIPTION:Appointment Details\nWhen: 08 Aug 2026 4:00 PM - 4:40 PM (CDT)
+ \nService: Beard With Haircut Session\nProvider Name: Ay Blendz\nBooking I
+ D: PA9UMWXK\n\nReschedule/Cancel: https://royaltouchbarberinggmailcom.setm
+ ore.com/manage/email/a3144c8e-e8e4-448e-9fd5-433033e9dc09?utm_source=email
+ &utm_medium=bookingpagecancelappointment\n\n\nCompany Details\nName: Royal
+  Touch Barbering Services and Salon\nAddress: Unit G - 2810 Pembina hwy\, 
+ Winnipeg\, Manitoba\, R3T 2H8\nPhone: +12042959924\n
+ORGANIZER;CN="Ay Blendz":mailto:noreply@setmore.com
+ATTENDEE;ROLE=REQ-PARTICIPANT;CUTYPE=INDIVIDUAL;RSVP=FALSE;CN="Joshua Tamu
+ nokuro Blue-Jack":MAILTO:bluejackjosh@gmail.com
+STATUS:CONFIRMED
+X-MICROSOFT-CDO-OWNERAPPTID:1786136620
+X-TZ-ABBREVIATION:CDT
+CREATED:20260807T210338
+LAST-MODIFIED:20260807T210338
+CLASS:PUBLIC
+END:VEVENT
+END:VCALENDAR

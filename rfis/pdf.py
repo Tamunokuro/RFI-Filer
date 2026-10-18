@@ -377,9 +377,20 @@ def build_rfi_pdf(
     story.append(details_table)
 
     # ── ④ Parties ─────────────────────────────────────────────────────────────
-    story += _section_header("PARTIES", styles)
+    story += _section_header("PARTIES & DISTRIBUTION", styles)
 
-    parties_data = [
+    issued_to_name = rfi.issued_to.name if rfi.issued_to else "—"
+    cc_names = _names(rfi.cc_members) if hasattr(rfi, "cc_members") else "—"
+
+    parties_rows = [
+        [
+            Paragraph("ISSUED TO", styles["table_label"]),
+            Paragraph(issued_to_name, styles["table_value"]),
+        ],
+        [
+            Paragraph("CC / DISTRIBUTION", styles["table_label"]),
+            Paragraph(cc_names, styles["table_value"]),
+        ],
         [
             Paragraph("DESIGNERS", styles["table_label"]),
             Paragraph(_names(rfi.designers), styles["table_value"]),
@@ -389,10 +400,12 @@ def build_rfi_pdf(
             Paragraph(_names(rfi.contract_administrators), styles["table_value"]),
         ],
     ]
-    parties_table = Table(parties_data, colWidths=["28%", "72%"])
+    parties_table = Table(parties_rows, colWidths=["28%", "72%"])
     parties_table.setStyle(TableStyle([
         ("BACKGROUND",    (0, 0), (-1, 0), SLATE_BG),
         ("BACKGROUND",    (0, 1), (-1, 1), WHITE),
+        ("BACKGROUND",    (0, 2), (-1, 2), SLATE_BG),
+        ("BACKGROUND",    (0, 3), (-1, 3), WHITE),
         ("LINEBELOW",     (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
         ("TOPPADDING",    (0, 0), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),

@@ -24,18 +24,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-!a07z^&2y8_vdk7zf$vs@4jfk15!a@0jk-qp^*kruuc11=92f2"
+# Set DJANGO_SECRET_KEY in .env — the fallback below is for local dev only
+# and must never be used in production (JWTs and password-reset tokens are
+# signed with this key).
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-dev-only-fallback-key-do-not-deploy",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DJANGO_DEBUG=false in production.
+DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 
-ALLOWED_HOSTS = ["*"]
+# Comma-separated list, e.g. DJANGO_ALLOWED_HOSTS=myapp.com,www.myapp.com
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-# CORS Configuration
+# CORS Configuration — explicit allowlist only. Add production origins via
+# CORS_EXTRA_ORIGINS=https://myapp.com (comma-separated).
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite default port
     "http://127.0.0.1:5173",
 ]
+if os.getenv("CORS_EXTRA_ORIGINS"):
+    CORS_ALLOWED_ORIGINS += os.getenv("CORS_EXTRA_ORIGINS").split(",")
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -48,12 +59,25 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    # Rate-limit auth endpoints (login, register, password reset) so
+    # credentials can't be brute-forced. Only views that set a
+    # throttle_scope are affected.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": "10/min",
+    },
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": ("Bearer",),
+    # Each refresh issues a new refresh token and blacklists the old one,
+    # so a stolen refresh token stops working after its first use.
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # Application definition
@@ -67,6 +91,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "rfis",
     "email_ingestion",
@@ -83,7 +108,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # Allow React frontend to communicate
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -159,9 +183,6 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWS_CREDENTIALS = True
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 FRONTEND_URL = "http://localhost:5173"

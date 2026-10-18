@@ -1,0 +1,22 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Calendly//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20241111T005134Z
+UID:calendly-1126650057
+DTSTART:20241114T140000Z
+DTEND:20241114T143000Z
+CLASS:PUBLIC
+DESCRIPTION:Event Name: 30 Minute Meeting\nDate & Time: 08:00am - 08:30am (
+ Central Time - US & Canada) on Thursday\, November 14\, 2024\n\nNeed to ma
+ ke changes to this event?\nCancel: https://calendly.com/cancellations/d41f
+ aa84-c511-4720-99f6-fb7325a76c29\nReschedule: https://calendly.com/resched
+ ulings/d41faa84-c511-4720-99f6-fb7325a76c29\n
+ORGANIZER;CN=Joshua:no-reply@calendly.com
+SUMMARY:30 Minute Meeting with Joshua
+TRANSP:OPAQUE
+ATTENDEE:mailto:tamunokrobluejack@gmail.com
+END:VEVENT
+END:VCALENDAR

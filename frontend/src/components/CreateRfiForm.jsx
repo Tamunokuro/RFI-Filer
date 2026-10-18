@@ -15,6 +15,8 @@ const CreateRfiForm = () => {
     handleParentRfiChange,
     handleDesignerChange,
     handleContractAdminChange,
+    handleIssuedToChange,
+    handleCcChange,
     handleSubmit,
   } = useCreateRfi();
 
@@ -152,6 +154,41 @@ const CreateRfiForm = () => {
               value={formData.contract_administrators || []}
               onChange={handleContractAdminChange}
               emptyMessage="No Contract Administrators in this project"
+            />
+          </div>
+
+          {/* ── Distribution ── */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+              Issued To
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Primary recipient this RFI is formally issued to.
+            </p>
+            <select
+              value={formData.issued_to || ""}
+              onChange={(e) => handleIssuedToChange(e.target.value ? Number(e.target.value) : null)}
+              className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+            >
+              <option value="">— Select recipient —</option>
+              {projectMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}{m.role ? ` (${m.role})` : ""}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+              CC / Distribution List
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Additional members to be copied on this RFI.
+            </p>
+            <AssigneePicker
+              members={projectMembers}
+              value={formData.cc_members || []}
+              onChange={handleCcChange}
+              emptyMessage="Select a project first"
             />
           </div>
 

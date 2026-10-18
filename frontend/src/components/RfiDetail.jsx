@@ -10,7 +10,8 @@ import RfiRevisionHistory from "./RfiRevisionHistory";
 import ContractChangesPanel from "./ContractChangesPanel";
 import { useAuth, canEditRfi } from "../context/Auth";
 import toast from "../toast";
-import { PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/20/solid";
+import { CheckIcon, XMarkIcon } from "@heroicons/react/20/solid";
+import { PencilSquareIcon } from "@heroicons/react/24/outline";
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
 
@@ -348,6 +349,8 @@ const RfiDetail = () => {
   const nextStep = NEXT_STEP[rfi.status] ?? null;
   const designers = rfi.designers_detail?.map((m) => m.name).join(", ") || "—";
   const contractAdmins = rfi.contract_administrators_detail?.map((m) => m.name).join(", ") || "—";
+  const issuedTo = rfi.issued_to_detail?.name || "—";
+  const ccList   = rfi.cc_members_detail?.map((m) => m.name).join(", ") || "—";
 
   const canReturn = rfi.status === "under_review" && RETURN_ROLES.has(role);
   const canManageWatchers = WATCHER_MANAGER_ROLES.has(role);
@@ -464,7 +467,7 @@ const RfiDetail = () => {
                                hover:text-indigo-600 dark:hover:text-indigo-400
                                hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
                   >
-                    <PencilIcon className="h-4 w-4" />
+                    <PencilSquareIcon className="h-4 w-4" />
                   </button>
                 </div>
               )}
@@ -586,6 +589,14 @@ const RfiDetail = () => {
             <div className="md:col-span-2">
               <dt className="text-gray-500 dark:text-gray-400">Contract Administrators</dt>
               <dd className="text-gray-900 dark:text-gray-100">{contractAdmins}</dd>
+            </div>
+            <div className="md:col-span-2">
+              <dt className="text-gray-500 dark:text-gray-400">Issued To</dt>
+              <dd className="text-gray-900 dark:text-gray-100 font-medium">{issuedTo}</dd>
+            </div>
+            <div className="md:col-span-2">
+              <dt className="text-gray-500 dark:text-gray-400">CC / Distribution</dt>
+              <dd className="text-gray-900 dark:text-gray-100">{ccList}</dd>
             </div>
             {rfi.question && (
               <div className="md:col-span-4">

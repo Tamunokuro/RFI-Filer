@@ -31,6 +31,9 @@ const useCreateRfi = () => {
     spec_section_title: "",
     attachments: null,         // FileList or Array from <input type="file" multiple>
     parent_rfi: "",            // ID of a closed RFI this supersedes (optional)
+    // Distribution
+    issued_to: null,           // Member ID or null
+    cc_members: [],            // array of Member IDs
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -98,6 +101,8 @@ const useCreateRfi = () => {
         rfi_number: "", // clear while fetching suggestion
         designers: [],
         contract_administrators: [],
+        issued_to: null,
+        cc_members: [],
       };
     });
 
@@ -244,6 +249,8 @@ const useCreateRfi = () => {
       spec_section:      formData.spec_section      || "",
       spec_section_title: formData.spec_section_title || "",
       ...(formData.parent_rfi ? { parent_rfi: Number(formData.parent_rfi) } : {}),
+      ...(formData.issued_to   ? { issued_to: Number(formData.issued_to) }   : { issued_to: null }),
+      cc_members: formData.cc_members,
     };
 
     try {
@@ -311,6 +318,14 @@ const useCreateRfi = () => {
     setFormData((prev) => ({ ...prev, contract_administrators: newIds }));
   };
 
+  const handleIssuedToChange = (memberId) => {
+    setFormData((prev) => ({ ...prev, issued_to: memberId || null }));
+  };
+
+  const handleCcChange = (newIds) => {
+    setFormData((prev) => ({ ...prev, cc_members: newIds }));
+  };
+
   return {
     formData,
     setFormData,
@@ -325,6 +340,8 @@ const useCreateRfi = () => {
     handleParentRfiChange,
     handleDesignerChange,
     handleContractAdminChange,
+    handleIssuedToChange,
+    handleCcChange,
     handleSubmit,
   };
 };

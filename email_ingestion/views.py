@@ -35,7 +35,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .matching.composite import CompositeProjectMatcher
-from .models import EmailConfig, InboundEmail
+from .models import EmailConfig, EmailFolder, InboundEmail
 from .parsing.dataclasses import ParsedEmail
 from .pipeline.rfi_creator import RfiCreator
 from .providers.base import ProviderError
@@ -43,6 +43,7 @@ from .providers.factory import get_provider
 from .serializer import (
     ApproveEmailSerializer,
     EmailConfigSerializer,
+    EmailFolderSerializer,
     InboundEmailDetailSerializer,
     InboundEmailListSerializer,
     RejectEmailSerializer,
@@ -56,11 +57,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 class IsAdminMember(IsAuthenticated):
-    """Authenticated + Member.is_admin."""
+    """
+    Authenticated AND (Member.is_admin OR Django superuser/staff).
+
+    Django superusers and staff users are always granted access so that the
+    site owner can manage email configs even before they have explicitly set
+    is_admin=True on their Member profile.
+    """
 
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
             return False
+        # Django superusers and staff users bypass the Member.is_admin check
+        if request.user.is_superuser or request.user.is_staff:
+            return True
         member = getattr(request.user, "member", None)
         return bool(member and member.is_admin)
 
@@ -89,7 +99,7 @@ class InboundEmailListView(APIView):
     search    partial match on subject or sender_email
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminMember]
     pagination_class = EmailPagination
 
     def get(self, request):
@@ -103,6 +113,18 @@ class InboundEmailListView(APIView):
         status_filter = request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)
+
+        email_type_filter = request.query_params.get("email_type")
+        if email_type_filter:
+            qs = qs.filter(email_type=email_type_filter)
+
+        folder_filter = request.query_params.get("folder")
+        if folder_filter:
+            qs = qs.filter(folder_id=folder_filter)
+
+        config_filter = request.query_params.get("config")
+        if config_filter:
+            qs = qs.filter(email_config_id=config_filter)
 
         search = request.query_params.get("search", "").strip()
         if search:
@@ -121,9 +143,12 @@ class InboundEmailListView(APIView):
 # ---------------------------------------------------------------------------
 
 class InboundEmailDetailView(APIView):
-    """GET /api/email/inbound/{id}/"""
+    """
+    GET    /api/email/inbound/{id}/
+    DELETE /api/email/inbound/{id}/
+    """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminMember]
 
     def get(self, request, pk):
         inbound = get_object_or_404(
@@ -135,10 +160,38 @@ class InboundEmailDetailView(APIView):
         serializer = InboundEmailDetailSerializer(inbound, context={"request": request})
         return Response(serializer.data)
 
+    def delete(self, request, pk):
+        inbound = get_object_or_404(InboundEmail, pk=pk)
+        inbound.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 # ---------------------------------------------------------------------------
 # Approve
 # ---------------------------------------------------------------------------
+
+class BulkDeleteInboundEmailView(APIView):
+    """
+    POST /api/email/inbound/bulk-delete/
+
+    Body: { "ids": [1, 2, 3] }
+
+    Deletes every InboundEmail whose PK is in the list.
+    Returns the count of records actually removed.
+    """
+
+    permission_classes = [IsAdminMember]
+
+    def post(self, request):
+        ids = request.data.get("ids", [])
+        if not isinstance(ids, list) or not ids:
+            return Response(
+                {"detail": "Provide a non-empty list of ids."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deleted_count, _ = InboundEmail.objects.filter(pk__in=ids).delete()
+        return Response({"deleted": deleted_count})
+
 
 class ApproveEmailView(APIView):
     """
@@ -157,7 +210,7 @@ class ApproveEmailView(APIView):
     All fields except project_id are optional and fall back to auto-parsed values.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminMember]
 
     def post(self, request, pk):
         inbound = get_object_or_404(InboundEmail, pk=pk)
@@ -227,7 +280,7 @@ class ApproveEmailView(APIView):
 class RejectEmailView(APIView):
     """POST /api/email/inbound/{id}/reject/"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminMember]
 
     def post(self, request, pk):
         inbound = get_object_or_404(InboundEmail, pk=pk)
@@ -278,7 +331,7 @@ class RetryEmailView(APIView):
     If omitted, falls back to the original stored subject / body_text.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminMember]
 
     def post(self, request, pk):
         inbound = get_object_or_404(InboundEmail, pk=pk)
@@ -432,3 +485,142 @@ class TestEmailConfigView(APIView):
         if ok:
             return Response({"ok": True, "detail": f"Connected to {config.imap_host} successfully."})
         return Response({"ok": False, "detail": "Login failed. Check username and password."})
+
+
+class PollEmailConfigView(APIView):
+    """
+    POST /api/email/configs/{id}/poll/
+
+    Runs the ingestion pipeline for a single EmailConfig immediately,
+    rather than waiting for the scheduled cron job.  Returns the number
+    of new emails processed and the updated last_polled_at timestamp.
+    """
+
+    permission_classes = [IsAdminMember]
+
+    def post(self, request, pk):
+        from .pipeline.pipeline import EmailIngestionPipeline
+
+        config = get_object_or_404(EmailConfig, pk=pk)
+
+        if not config.is_active:
+            return Response(
+                {"detail": "This inbox is paused. Enable it before polling."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            count = EmailIngestionPipeline().run_one(config)
+        except Exception as exc:
+            logger.exception("On-demand poll failed for config #%d", pk)
+            return Response(
+                {"ok": False, "detail": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Re-read the timestamp that _process_config just wrote
+        config.refresh_from_db(fields=["last_polled_at"])
+
+        noun = "email" if count == 1 else "emails"
+        return Response({
+            "ok": True,
+            "emails_processed": count,
+            "last_polled_at": config.last_polled_at,
+            "detail": f"Poll complete — {count} new {noun} processed.",
+        })
+
+
+# ---------------------------------------------------------------------------
+# EmailFolder — CRUD
+# ---------------------------------------------------------------------------
+
+class ApplyEmailFoldersView(APIView):
+    """
+    POST /api/email/folders/apply/
+
+    Re-runs keyword-based folder matching against every InboundEmail in the
+    database.  Useful after adding or editing folders so that existing emails
+    get assigned without needing to be re-fetched.
+
+    Returns the number of emails whose folder assignment changed.
+    """
+
+    permission_classes = [IsAdminMember]
+
+    def post(self, request):
+        from .pipeline.pipeline import _match_folder
+        from .parsing.dataclasses import ParsedEmail as _ParsedEmail
+
+        updated = 0
+        for email in InboundEmail.objects.select_related("folder").iterator(chunk_size=200):
+            pseudo = _ParsedEmail(
+                message_id=email.message_id or "",
+                received_at=email.received_at,
+                sender_name=email.sender_name or "",
+                sender_email=email.sender_email or "",
+                subject=email.subject or "",
+                body_text=email.body_text or "",
+            )
+            new_folder = _match_folder(pseudo)
+            if new_folder != email.folder:
+                email.folder = new_folder
+                email.save(update_fields=["folder"])
+                updated += 1
+
+        noun = "email" if updated == 1 else "emails"
+        return Response({
+            "detail": f"Done — {updated} {noun} re-filed.",
+            "updated": updated,
+        })
+
+
+class EmailFolderListCreateView(APIView):
+    """
+    GET  /api/email/folders/   list all folders (any authenticated user)
+    POST /api/email/folders/   create new folder (admin only)
+    """
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAdminMember()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        folders = EmailFolder.objects.all()
+        serializer = EmailFolderSerializer(folders, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = EmailFolderSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EmailFolderDetailView(APIView):
+    """
+    GET    /api/email/folders/{id}/
+    PATCH  /api/email/folders/{id}/
+    DELETE /api/email/folders/{id}/
+    """
+
+    permission_classes = [IsAdminMember]
+
+    def _get_object(self, pk):
+        return get_object_or_404(EmailFolder, pk=pk)
+
+    def get(self, request, pk):
+        return Response(EmailFolderSerializer(self._get_object(pk)).data)
+
+    def patch(self, request, pk):
+        folder = self._get_object(pk)
+        serializer = EmailFolderSerializer(folder, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        self._get_object(pk).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

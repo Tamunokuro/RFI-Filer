@@ -132,6 +132,16 @@ class RfiSerializer(serializers.ModelSerializer):
         source="contract_administrators", many=True, read_only=True
     )
 
+    # Distribution — issued_to (single) + cc_members (many)
+    issued_to = serializers.PrimaryKeyRelatedField(
+        queryset=Member.objects.all(), required=False, allow_null=True
+    )
+    issued_to_detail = MemberSerializer(source="issued_to", read_only=True)
+    cc_members = serializers.PrimaryKeyRelatedField(
+        queryset=Member.objects.all(), many=True, required=False
+    )
+    cc_members_detail = MemberSerializer(source="cc_members", many=True, read_only=True)
+
     # write project as PK; author comes from request.user
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     author = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -182,6 +192,8 @@ class RfiSerializer(serializers.ModelSerializer):
             "author", "trade", "rfi_name", "rfi_number",
             "designers", "designers_detail",
             "contract_administrators", "contract_administrators_detail",
+            "issued_to", "issued_to_detail",
+            "cc_members", "cc_members_detail",
             "received_date", "due_date", "question", "proposed_solution",
             "drawing_number", "drawing_revision", "drawing_title",
             "spec_section", "spec_section_title",
@@ -242,11 +254,14 @@ class RfiSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         designers = validated_data.pop("designers", [])
         contract_admins = validated_data.pop("contract_administrators", [])
+        cc_members = validated_data.pop("cc_members", [])
         rfi = Rfi.objects.create(**validated_data)
         if designers:
             rfi.designers.set(designers)
         if contract_admins:
             rfi.contract_administrators.set(contract_admins)
+        if cc_members:
+            rfi.cc_members.set(cc_members)
         # Notify everyone assigned at creation time
         self._fire_assigned_notifications(rfi, list(designers) + list(contract_admins))
         return rfi
@@ -254,6 +269,7 @@ class RfiSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         designers = validated_data.pop("designers", None)
         contract_admins = validated_data.pop("contract_administrators", None)
+        cc_members = validated_data.pop("cc_members", None)
 
         # Capture current assignees before the update
         old_designers = set(instance.designers.all())
@@ -270,6 +286,8 @@ class RfiSerializer(serializers.ModelSerializer):
         if contract_admins is not None:
             new_cas = set(contract_admins) - old_cas
             rfi.contract_administrators.set(contract_admins)
+        if cc_members is not None:
+            rfi.cc_members.set(cc_members)
 
         # Notify only the newly added assignees
         self._fire_assigned_notifications(rfi, new_designers | new_cas)

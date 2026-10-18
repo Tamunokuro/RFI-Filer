@@ -16,7 +16,15 @@ export const EMAIL_STATUSES = {
   error:        "error",
 };
 
-const useEmailInbox = ({ status = "", search = "", page = 1, pageSize = 20 } = {}) => {
+const useEmailInbox = ({
+  status = "",
+  search = "",
+  page = 1,
+  pageSize = 20,
+  configId = null,
+  emailType = null,
+  folderId = null,
+} = {}) => {
   const [emails, setEmails]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
@@ -29,8 +37,11 @@ const useEmailInbox = ({ status = "", search = "", page = 1, pageSize = 20 } = {
     setError("");
     try {
       const params = { page, page_size: pageSize };
-      if (status) params.status = status;
-      if (search.trim()) params.search = search.trim();
+      if (status)            params.status     = status;
+      if (search.trim())     params.search     = search.trim();
+      if (configId)          params.config     = configId;
+      if (emailType)         params.email_type = emailType;
+      if (folderId)          params.folder     = folderId;
 
       const res = await api.get("/api/email/inbound/", { params });
       setEmails(res.data.results);
@@ -43,13 +54,36 @@ const useEmailInbox = ({ status = "", search = "", page = 1, pageSize = 20 } = {
     } finally {
       setLoading(false);
     }
-  }, [status, search, page, pageSize]);
+  }, [status, search, page, pageSize, configId, emailType, folderId]);
 
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
 
-  return { emails, loading, error, count, next, prev, refetch: fetchEmails };
+  const deleteEmail = useCallback(async (id) => {
+    try {
+      await api.delete(`/api/email/inbound/${id}/`);
+      await fetchEmails(); // refetch so next-page emails slide in automatically
+      return { ok: true };
+    } catch (err) {
+      console.error("Failed to delete email:", err);
+      return { ok: false };
+    }
+  }, [fetchEmails]);
+
+  const bulkDeleteEmails = useCallback(async (ids) => {
+    try {
+      const res = await api.post("/api/email/inbound/bulk-delete/", { ids });
+      const deleted = res.data.deleted ?? ids.length;
+      await fetchEmails(); // refetch so the page refills from the server
+      return { ok: true, deleted };
+    } catch (err) {
+      console.error("Failed to bulk-delete emails:", err);
+      return { ok: false };
+    }
+  }, [fetchEmails]);
+
+  return { emails, loading, error, count, next, prev, refetch: fetchEmails, deleteEmail, bulkDeleteEmails };
 };
 
 export default useEmailInbox;

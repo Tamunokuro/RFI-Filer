@@ -160,6 +160,17 @@ class Rfi(models.Model):
     responded_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
 
+    # ── Distribution ─────────────────────────────────────────────────────────
+    issued_to = models.ForeignKey(
+        Member, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="issued_rfis",
+        help_text="Primary recipient this RFI is formally issued to.",
+    )
+    cc_members = models.ManyToManyField(
+        Member, blank=True, related_name="cc_rfis",
+        help_text="Additional members on the distribution / CC list.",
+    )
+
     # ── Return-to-submitter ───────────────────────────────────────────────────
     return_note = models.TextField(
         blank=True,

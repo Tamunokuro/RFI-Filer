@@ -1,0 +1,50 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VTIMEZONE
+TZID:America/Vancouver
+X-LIC-LOCATION:America/Vancouver
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0700
+TZNAME:PST
+DTSTART:19700101T000000
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/Vancouver:20260731T121500
+DTEND;TZID=America/Vancouver:20260731T124500
+DTSTAMP:20260729T172613Z
+ORGANIZER;CN=Christina Tuyen:mailto:christina@part3.io
+UID:0jpiqeodh4fhprk5dduu7jg784@google.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=bluejackjosh@gmail.com;X-NUM-GUESTS=0:mailto:bluejackjosh@gmail.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE
+ ;CN=Christina Tuyen;X-NUM-GUESTS=0:mailto:christina@part3.io
+X-GOOGLE-CONFERENCE:https://meet.google.com/cfk-czdt-igk
+X-MICROSOFT-CDO-OWNERAPPTID:528047705
+CREATED:20260729T172558Z
+DESCRIPTION:Join link for Google Meet : https://meet.google.com/cfk-czdt-ig
+ k\n<br><b>Need to make changes?</b><br><ul><li>Reschedule:&nbsp\;<a href="h
+ ttps://app.hubspot.com/meetings/ctuyen?rescheduleId=833ae45e95a70d31de59e2c
+ 645a4c6b9&amp\;ms=1">https://app.hubspot.com/meetings/ctuyen?rescheduleId=8
+ 33ae45e95a70d31de59e2c645a4c6b9&amp\;ms=1</a></li><li>Cancel:&nbsp\;<a href
+ ="https://app.hubspot.com/meetings/ctuyen?cancelId=833ae45e95a70d31de59e2c6
+ 45a4c6b9&amp\;ms=1">https://app.hubspot.com/meetings/ctuyen?cancelId=833ae4
+ 5e95a70d31de59e2c645a4c6b9&amp\;ms=1</a></li></ul>\n\n-::~:~::~:~:~:~:~:~:~
+ :~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-\nJoin wi
+ th Google Meet: https://meet.google.com/cfk-czdt-igk\n\nLearn more about Me
+ et at: https://support.google.com/a/users/answer/9282720\n\nPlease do not e
+ dit this section.\n-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:
+ ~:~:~:~:~:~:~:~:~:~:~:~::~:~::-
+LAST-MODIFIED:20260729T172609Z
+LOCATION:https://meet.google.com/cfk-czdt-igk\; https://meet.google.com/cfk
+ -czdt-igk
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Part3 Chat
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR

@@ -1,20 +1,20 @@
 /**
  * SSOCallback — handles the redirect from the Django SSO callback.
  *
- * Django redirects here with:
- *   ?access=<jwt-access-token>&refresh=<jwt-refresh-token>&provider=google|microsoft
+ * Django redirects here with the tokens in the URL *fragment* (never sent to
+ * servers, proxies, or written to access logs):
+ *   #access=<jwt-access-token>&refresh=<jwt-refresh-token>&provider=google|microsoft
  *
  * On error:
  *   /login?sso_error=<reason>
  */
 import { useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 import { useAuth } from "../context/Auth";
 import api from "../api";
 
 export default function SSOCallback() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { login } = useAuth();
   const done = useRef(false); // prevent double-fire in React StrictMode
@@ -23,8 +23,13 @@ export default function SSOCallback() {
     if (done.current) return;
     done.current = true;
 
-    const access  = searchParams.get("access");
-    const refresh = searchParams.get("refresh");
+    // Tokens arrive in the fragment (window.location.hash), e.g. "#access=…&refresh=…"
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const access  = hashParams.get("access");
+    const refresh = hashParams.get("refresh");
+
+    // Strip the tokens from the address bar so they don't linger in history.
+    window.history.replaceState(null, "", window.location.pathname);
 
     if (!access || !refresh) {
       navigate("/login?sso_error=missing_tokens");

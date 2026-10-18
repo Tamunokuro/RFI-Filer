@@ -13,7 +13,7 @@ EmailConfigSerializer             — CRUD for watched inbox settings
 
 from rest_framework import serializers
 
-from .models import EmailConfig, InboundEmail, InboundEmailAttachment
+from .models import EmailConfig, EmailFolder, InboundEmail, InboundEmailAttachment
 
 
 # ---------------------------------------------------------------------------
@@ -46,8 +46,10 @@ class InboundEmailListSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source="project.project_name", default=None)
     project_number = serializers.CharField(source="project.project_number", default=None)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    email_type_display = serializers.CharField(source="get_email_type_display", read_only=True)
     attachment_count = serializers.SerializerMethodField()
     rfi_number = serializers.CharField(source="rfi.rfi_number", default=None)
+    folder_name = serializers.CharField(source="folder.name", default=None)
 
     class Meta:
         model = InboundEmail
@@ -64,8 +66,11 @@ class InboundEmailListSerializer(serializers.ModelSerializer):
             "match_reason",
             "status",
             "status_display",
+            "email_type",
+            "email_type_display",
             "attachment_count",
             "rfi_number",
+            "folder_name",
         ]
         read_only_fields = fields
 
@@ -82,10 +87,13 @@ class InboundEmailDetailSerializer(serializers.ModelSerializer):
     project_number = serializers.CharField(source="project.project_number", default=None)
     project_id = serializers.IntegerField(source="project.id", default=None)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    email_type_display = serializers.CharField(source="get_email_type_display", read_only=True)
     attachments = InboundEmailAttachmentSerializer(many=True, read_only=True)
     rfi_number = serializers.CharField(source="rfi.rfi_number", default=None)
     rfi_id = serializers.IntegerField(source="rfi.id", default=None)
     rfi_slug = serializers.CharField(source="rfi.slug", default=None)
+    folder_id = serializers.IntegerField(source="folder.id", default=None)
+    folder_name = serializers.CharField(source="folder.name", default=None)
 
     class Meta:
         model = InboundEmail
@@ -107,10 +115,14 @@ class InboundEmailDetailSerializer(serializers.ModelSerializer):
             "parsed_trade",
             "status",
             "status_display",
+            "email_type",
+            "email_type_display",
             "attachments",
             "rfi_number",
             "rfi_id",
             "rfi_slug",
+            "folder_id",
+            "folder_name",
             "rejection_reason",
             "error_message",
         ]
@@ -159,6 +171,18 @@ class RejectEmailSerializer(serializers.Serializer):
 # EmailConfig — watched inbox CRUD
 # ---------------------------------------------------------------------------
 
+class EmailFolderSerializer(serializers.ModelSerializer):
+    email_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmailFolder
+        fields = ["id", "name", "description", "keywords", "color", "email_count"]
+        read_only_fields = ["id", "email_count"]
+
+    def get_email_count(self, obj):
+        return obj.inbound_emails.count()
+
+
 class EmailConfigSerializer(serializers.ModelSerializer):
     provider_display = serializers.CharField(source="get_provider_display", read_only=True)
     last_polled_at = serializers.DateTimeField(read_only=True)
@@ -179,7 +203,9 @@ class EmailConfigSerializer(serializers.ModelSerializer):
             "password",
             "mailbox",
             "is_active",
+            "gmail_primary_only",
             "auto_create_threshold",
+            "subject_format_hint",
             "last_polled_at",
         ]
         read_only_fields = ["id", "last_polled_at", "provider_display"]

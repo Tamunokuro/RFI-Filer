@@ -20,8 +20,12 @@ const ProtectedRoute = ({ children }) => {
         refresh: refreshToken,
       });
       if (res.status === 200) {
-        const { access } = res.data;
+        const { access, refresh } = res.data;
         localStorage.setItem(ACCESS_TOKEN, access);
+        // Rotation is enabled server-side: each refresh returns a new
+        // refresh token and blacklists the old one, so we must keep the
+        // latest or the next refresh will be rejected.
+        if (refresh) localStorage.setItem(REFRESH_TOKEN, refresh);
         setAuthUser(true);
       }
     } catch (error) {
