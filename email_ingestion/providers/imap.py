@@ -95,8 +95,14 @@ class ImapEmailProvider(BaseEmailProvider):
                     )
                     return raw_emails
 
+                # Sort descending so we fetch the most recent messages first.
+                # IMAP servers return UIDs in ascending (oldest-first) order, so
+                # without reversing we'd always pick up the oldest unread messages
+                # and leave newer ones for the next run.
+                uids_newest_first = sorted(uids, reverse=True)
+
                 # Cap to BATCH_SIZE — remaining unseen mail is picked up next run
-                batch = uids[: self.BATCH_SIZE]
+                batch = uids_newest_first[: self.BATCH_SIZE]
                 if len(uids) > self.BATCH_SIZE:
                     logger.info(
                         "%s: %d unseen message(s) found — fetching first %d (remainder next run)",

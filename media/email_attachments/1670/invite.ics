@@ -1,0 +1,35 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Calendly//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20240828T131506Z
+UID:calendly-1064505965
+DTSTART:20240829T150000Z
+DTEND:20240829T160000Z
+CLASS:PUBLIC
+DESCRIPTION:Event Name: Career Coach Consultation Session\nEvent Descriptio
+ n: Host: Matthias FeistType of Event: Career InsightsDescription:Join us f
+ or a dynamic consulting session with a seasoned career coach. This session
+  is designed to address your specific questions and concerns\, providing t
+ ailored guidance for your unique career journey and job search tactics.Thi
+ s is not a usual meeting with a predefined topic. Instead\, it's a flexibl
+ e chat that changes based on what you need. It's all about your specific p
+ roblems. You can join in\, talk about your own issues\, and get advice tha
+ t fits your job search situation. It's an opportunity to obtain customized
+  strategies and elevate your career prospects.Don't miss out on this empow
+ ering drop-in session\, where you can enhance your career trajectory and g
+ ain the support you need to excel.\nDate & Time: 10:00am - 11:00am (Centra
+ l Time - US & Canada) on Thursday\, August 29\, 2024\nLocation: https://zo
+ om.us/j/97855323103?pwd=bkdYOFdXZk45Sk56bXRnOVVRclNxdz09\n\nNeed to make c
+ hanges to this event?\nCancel: https://calendly.com/cancellations/350eb3b4
+ -b44f-416f-807e-cba2abaed3a6\nReschedule: https://calendly.com/reschedulin
+ gs/350eb3b4-b44f-416f-807e-cba2abaed3a6\n
+LOCATION:https://zoom.us/j/97855323103?pwd=bkdYOFdXZk45Sk56bXRnOVVRclNxdz09
+ORGANIZER;CN=Microverse Calendar:no-reply@calendly.com
+SUMMARY:Career Coach Consultation Session with Microverse Calendar
+TRANSP:OPAQUE
+ATTENDEE:mailto:tamunokrobluejack@gmail.com
+END:VEVENT
+END:VCALENDAR

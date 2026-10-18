@@ -2,6 +2,40 @@ from django.db import models
 from rfis.models import Project, Rfi
 
 
+class EmailFolder(models.Model):
+    """
+    A named folder for filing inbound emails that don't map to an RFI.
+
+    App-notification emails (Asana, Jira, Slack, etc.) and emails that
+    don't match any project are auto-routed here based on ``keywords``.
+    """
+
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=300, blank=True)
+    # JSON list of lower-cased strings.  If any keyword appears in the
+    # sender domain OR email subject the email is filed here automatically.
+    keywords = models.JSONField(
+        default=list,
+        help_text=(
+            "Lower-cased keywords.  If any match the sender domain or subject "
+            "the email is auto-filed into this folder."
+        ),
+    )
+    color = models.CharField(
+        max_length=20,
+        default="indigo",
+        help_text="Tailwind colour name used for the folder chip in the UI.",
+    )
+
+    class Meta:
+        verbose_name = "Email Folder"
+        verbose_name_plural = "Email Folders"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class EmailConfig(models.Model):
     """
     Connection settings for a watched IMAP inbox.
@@ -61,6 +95,18 @@ class EmailConfig(models.Model):
         help_text="Confidence score (0–1) above which an RFI is created automatically",
     )
 
+    # Subject format hint — describes the expected subject-line pattern.
+    # Used as a hint in the UI and (optionally) by the parser.
+    # Example: "RFI – {project_number} – {rfi_name}"
+    subject_format_hint = models.TextField(
+        blank=True,
+        help_text=(
+            'Describe the expected subject pattern, e.g. '
+            '"RFI – {project_number} – {rfi_name}". '
+            "Helps the system parse subjects more accurately."
+        ),
+    )
+
     class Meta:
         verbose_name = "Email Config"
         verbose_name_plural = "Email Configs"
@@ -92,6 +138,13 @@ class InboundEmail(models.Model):
         APPROVED = "approved", "Manually Approved"
         REJECTED = "rejected", "Rejected"
         ERROR = "error", "Processing Error"
+        FILED = "filed", "Auto-filed"
+
+    class EmailType(models.TextChoices):
+        RFI       = "rfi",       "RFI"
+        PCN       = "pcn",       "Project Change Notice"
+        APP_EMAIL = "app_email", "App Notification"
+        OTHER     = "other",     "Other"
 
     email_config = models.ForeignKey(
         EmailConfig,
@@ -157,6 +210,22 @@ class InboundEmail(models.Model):
 
     rejection_reason = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
+
+    # Detected email type (RFI, PCN, app notification, or other)
+    email_type = models.CharField(
+        max_length=15,
+        choices=EmailType.choices,
+        default=EmailType.OTHER,
+        db_index=True,
+    )
+    # Filed into a folder (app notifications and unmatched emails)
+    folder = models.ForeignKey(
+        EmailFolder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inbound_emails",
+    )
 
     class Meta:
         verbose_name = "Inbound Email"

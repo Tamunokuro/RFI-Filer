@@ -1,0 +1,40 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTART:20250126T150000Z
+DTEND:20250126T160000Z
+DTSTAMP:20250126T004336Z
+ORGANIZER;CN=Roland:mailto:rolandadebolu@gmail.com
+UID:09pr9uc0p6dj02ruuq3tqo77hg@google.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=tamunokrobluejack@gmail.com;X-NUM-GUESTS=0:mailto:tamunokrobluejack
+ @gmail.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=onipetheoderic@gmail.com;X-NUM-GUESTS=0:mailto:onipetheoderic@gmail
+ .com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE
+ ;CN=Roland;X-NUM-GUESTS=0:mailto:rolandadebolu@gmail.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=seunbabz15@gmail.com;X-NUM-GUESTS=0:mailto:seunbabz15@gmail.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=hassan.braimah01@gmail.com;X-NUM-GUESTS=0:mailto:hassan.braimah01@g
+ mail.com
+X-GOOGLE-CONFERENCE:https://meet.google.com/iiq-jchf-vyt
+X-MICROSOFT-CDO-OWNERAPPTID:399878855
+CREATED:20250126T004333Z
+DESCRIPTION:-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~
+ :~:~:~:~:~:~:~:~::~:~::-\nJoin with Google Meet: https://meet.google.com/ii
+ q-jchf-vyt\n\nLearn more about Meet at: https://support.google.com/a/users/
+ answer/9282720\n\nPlease do not edit this section.\n-::~:~::~:~:~:~:~:~:~:~
+ :~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-
+LAST-MODIFIED:20250126T004335Z
+LOCATION:
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Crib365 Meeting
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR

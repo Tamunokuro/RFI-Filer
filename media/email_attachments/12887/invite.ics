@@ -1,0 +1,57 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/Chicago
+BEGIN:DAYLIGHT
+DTSTART:20260308T030000
+TZOFFSETFROM:-0600
+TZOFFSETTO:-0500
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:CDT
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20261101T010000
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0600
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:CST
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20260814T163210Z
+UID:2a45be7b-4d92-4ff5-8050-975d636c47ca
+DTSTART;TZID=America/Chicago:20260814T150000
+DTEND;TZID=America/Chicago:20260814T153000
+DESCRIPTION:Regarding Joshua Blue-Jack - Unassigned ∙ https://grow.clio.c
+ om/matters/joshua-blue-jack-unassigned\n\n--------\nDr. Muhammad Abrar is 
+ inviting you to a scheduled Zoom meeting.\n\nTopic: Initial consultation\n
+ Time: Aug 14\, 2026 16:00 Eastern Time (US and Canada)\nJoin Zoom Meeting\
+ nhttps://us06web.zoom.us/j/85922769150?pwd=0TSf1bKgW20k6yPOGvjiPJDphaDIsF.
+ 1\n\nMeeting chat link\nhttps://us06web.zoom.us/launch/jc/85922769150\n\nV
+ iew meeting insights\nhttps://us06web.zoom.us/launch/edl?muid=8fb95a51-09b
+ b-4875-ba38-0a26d30b648c\n\nMeeting ID: 859 2276 9150\nPasscode: JO95Rf-yK
+ I\n\n---\n\nOne tap mobile\n+17806660144\,\,85922769150#\,\,\,\,*960671736
+ 9# Canada\n+12042727920\,\,85922769150#\,\,\,\,*9606717369# Canada\n\n\n--
+ -\n\nJoin by SIP\n• 85922769150@zoomcrc.com\n\nJoin instructions\nhttps:
+ //us06web.zoom.us/meetings/85922769150/invitations?signature=N08JTL8ev_REP
+ muolo7cia9uW6O9x-eCRLfF95f2me8\n\n\n--------\n\nhttps://app.clio.com/video
+ _conferences/BAh7DjoNam9pbl91cmxJIk9odHRwczovL3VzMDZ3ZWIuem9vbS51cy9qLzg1O
+ TIyNzY5MTUwP3B3ZD0wVFNmMWJLZ1cyMGs2eVBPR3ZqaVBKRHBoYURJc0YuMQY6BkVUOg92aWR
+ lb190b29sSSIJem9vbQY7BlQ6C3NvdXJjZUkiCmVtYWlsBjsGVDoPbWVldGluZ19pZGkD7t5zO
+ hFtZWV0aW5nX3RpbWVJIhwyMDI2LTA4LTE0IDIwOjAwOjAwIFVUQwY7BlQ6FG1lZXRpbmdfYWx
+ sX2RheUY6EmF0dGVuZGVlX3R5cGVJIgxDb250YWN0BjsGVDoQYXR0ZW5kZWVfaWRsKwcAA0uYO
+ gx1c2VyX2lkaQTrAV0V--b3b88f99cfc0b70fb11ed2188d0d5cc38a2d9f6a9e682247dcc1a
+ 30aaaa8e48a
+LOCATION:https://app.clio.com/video_conferences/BAh7DjoNam9pbl91cmxJIk9odHR
+ wczovL3VzMDZ3ZWIuem9vbS51cy9qLzg1OTIyNzY5MTUwP3B3ZD0wVFNmMWJLZ1cyMGs2eVBPR
+ 3ZqaVBKRHBoYURJc0YuMQY6BkVUOg92aWRlb190b29sSSIJem9vbQY7BlQ6C3NvdXJjZUkiCmV
+ tYWlsBjsGVDoPbWVldGluZ19pZGkD7t5zOhFtZWV0aW5nX3RpbWVJIhwyMDI2LTA4LTE0IDIwO
+ jAwOjAwIFVUQwY7BlQ6FG1lZXRpbmdfYWxsX2RheUY6EmF0dGVuZGVlX3R5cGVJIgxDb250YWN
+ 0BjsGVDoQYXR0ZW5kZWVfaWRsKwcAA0uYOgx1c2VyX2lkaQTrAV0V--b3b88f99cfc0b70fb11
+ ed2188d0d5cc38a2d9f6a9e682247dcc1a30aaaa8e48a
+ORGANIZER:doctor@amcaim.ca
+SUMMARY:Initial consultation
+END:VEVENT
+END:VCALENDAR

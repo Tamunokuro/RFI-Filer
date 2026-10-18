@@ -11,7 +11,9 @@ from rest_framework.pagination import PageNumberPagination
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_bytes, force_str
 from django.conf import settings
 
@@ -94,6 +96,8 @@ def _capture_rfi_snapshot(rfi):
     snap = {f: str(getattr(rfi, f, "") or "") for f in TRACKED_RFI_FIELDS}
     snap["designers"] = sorted(m.name for m in rfi.designers.all())
     snap["contract_administrators"] = sorted(m.name for m in rfi.contract_administrators.all())
+    snap["issued_to"] = rfi.issued_to.name if rfi.issued_to else ""
+    snap["cc_members"] = sorted(m.name for m in rfi.cc_members.all())
     return snap
 
 
@@ -137,6 +141,7 @@ User = get_user_model()
 
 class UserCreateView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -216,6 +221,7 @@ class MeView(APIView):
     
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         email = request.data.get("email")
@@ -249,6 +255,7 @@ class ForgotPasswordView(APIView):
     
 class ResetPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth"
 
     def post(self, request):
         uid = request.data.get("uid")
@@ -280,6 +287,17 @@ class ResetPasswordView(APIView):
         if not default_token_generator.check_token(user, token):
             return Response(
                 {"detail": "Invalid or expired token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Enforce AUTH_PASSWORD_VALIDATORS (min length, common passwords, …)
+        # — otherwise reset would accept any password, bypassing the rules
+        # applied at registration.
+        try:
+            validate_password(password, user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"password": exc.messages},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -830,7 +848,7 @@ class RfiListCreate(APIView):
             Rfi.objects
             .filter(project_id__in=my_project_ids)
             .select_related("project", "author")
-            .prefetch_related("designers", "contract_administrators")
+            .prefetch_related("designers", "contract_administrators", "cc_members")
         )
 
         project_id = request.query_params.get("project")
@@ -917,7 +935,7 @@ class RfiDetail(APIView):
     def get_object(self, pk, member=None):
         qs = Rfi.objects.select_related(
             "project", "project__project_manager", "author"
-        ).prefetch_related("designers", "contract_administrators")
+        ).prefetch_related("designers", "contract_administrators", "cc_members")
 
         project_ids = _member_project_ids(member)
         if project_ids is not None:
@@ -1029,7 +1047,7 @@ class RfiPdfExport(APIView):
         rfi = get_object_or_404(
             Rfi.objects
             .select_related("project", "project__project_manager", "responded_by")
-            .prefetch_related("designers", "contract_administrators", "attachments"),
+            .prefetch_related("designers", "contract_administrators", "cc_members", "attachments"),
             pk=pk,
         )
 
@@ -2524,7 +2542,7 @@ def _check_due_reminders(member):
             status__in=active_statuses,
         )
         .select_related("project")
-        .prefetch_related("designers", "contract_administrators")
+        .prefetch_related("designers", "contract_administrators", "cc_members")
     )
 
     for rfi in rfis:
@@ -2622,6 +2640,7 @@ class NotificationMarkRead(APIView):
 #-----Customer Token Pair--------
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_scope = "auth"
 
 
 # ---------- AI (ChatGPT) ----------

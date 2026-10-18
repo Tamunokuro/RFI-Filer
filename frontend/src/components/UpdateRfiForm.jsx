@@ -14,6 +14,8 @@ const UpdateRfiForm = () => {
     project_manager: "",
     designers: [],
     contract_administrators: [],
+    issued_to: null,
+    cc_members: [],
     priority: "medium",
     trade: "",
     rfi_name: "",
@@ -63,6 +65,8 @@ const UpdateRfiForm = () => {
           drawing_title:     data.drawing_title     ?? "",
           spec_section:      data.spec_section      ?? "",
           spec_section_title: data.spec_section_title ?? "",
+          issued_to:  data.issued_to  ?? null,
+          cc_members: Array.isArray(data.cc_members) ? data.cc_members : [],
         }));
 
         // Load project members so the pickers can show names
@@ -113,6 +117,8 @@ const UpdateRfiForm = () => {
       drawing_title:     formData.drawing_title     || "",
       spec_section:      formData.spec_section      || "",
       spec_section_title: formData.spec_section_title || "",
+      issued_to:  formData.issued_to || null,
+      cc_members: formData.cc_members,
     };
 
     try {
@@ -247,6 +253,43 @@ const UpdateRfiForm = () => {
                 setFormData((p) => ({ ...p, contract_administrators: ids }))
               }
               emptyMessage="No Contract Administrators in this project"
+            />
+          </div>
+
+          {/* ── Distribution ── */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+              Issued To
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Primary recipient this RFI is formally issued to.
+            </p>
+            <select
+              value={formData.issued_to || ""}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, issued_to: e.target.value ? Number(e.target.value) : null }))
+              }
+              className="block w-full rounded-md bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+            >
+              <option value="">— Select recipient —</option>
+              {projectMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}{m.role ? ` (${m.role})` : ""}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+              CC / Distribution List
+            </label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+              Additional members to be copied on this RFI.
+            </p>
+            <AssigneePicker
+              members={projectMembers}
+              value={formData.cc_members || []}
+              onChange={(ids) => setFormData((p) => ({ ...p, cc_members: ids }))}
+              emptyMessage="No members in this project"
             />
           </div>
 
