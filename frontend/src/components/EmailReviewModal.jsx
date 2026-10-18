@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/20/solid";
 import api from "../api";
 import toast from "../toast";
+import AssigneePicker from "./AssigneePicker";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -104,13 +105,19 @@ export default function EmailReviewModal({ emailId, onClose }) {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
 
+  // Members of the currently-selected project (for the designer picker)
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+
   // Editable form state (pre-filled from parsed fields)
   const [form, setForm] = useState({
-    project_id: "",
-    rfi_name:   "",
-    question:   "",
-    trade:      "M",
-    due_date:   "",
+    project_id:        "",
+    rfi_name:          "",
+    question:          "",
+    trade:             "M",
+    due_date:          "",
+    designer_ids:      [],
+    contract_admin_ids: [],
   });
 
   // Action state
@@ -134,11 +141,13 @@ export default function EmailReviewModal({ emailId, onClose }) {
       setEmail(e);
       setProjects(projectsRes.data.results ?? projectsRes.data);
       setForm({
-        project_id: e.project_id ?? "",
-        rfi_name:   e.parsed_rfi_name ?? "",
-        question:   e.parsed_question ?? "",
-        trade:      e.parsed_trade || "M",
-        due_date:   "",
+        project_id:         e.project_id ?? "",
+        rfi_name:           e.parsed_rfi_name ?? "",
+        question:           e.parsed_question ?? "",
+        trade:              e.parsed_trade || "M",
+        due_date:           "",
+        designer_ids:       [],
+        contract_admin_ids: [],
       });
     } catch {
       setError("Failed to load email details.");
@@ -148,6 +157,42 @@ export default function EmailReviewModal({ emailId, onClose }) {
   }, [emailId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Fetch the selected project's members so we can offer a designer picker.
+  // Runs whenever the chosen project changes (manual pick or retry match).
+  useEffect(() => {
+    if (!form.project_id) {
+      setProjectMembers([]);
+      return;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    // Drop any assignees picked for a previous project.
+    setForm((f) =>
+      f.designer_ids.length || f.contract_admin_ids.length
+        ? { ...f, designer_ids: [], contract_admin_ids: [] }
+        : f
+    );
+
+    api
+      .get(`/api/projects/${form.project_id}/members/`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const mapped = (data ?? []).map((m) => ({
+          id:   m.member?.id ?? m.member_id,
+          name: m.member?.name ?? "",
+          role: m.role,
+        }));
+        setProjectMembers(mapped);
+      })
+      .catch(() => { if (!cancelled) setProjectMembers([]); })
+      .finally(() => { if (!cancelled) setMembersLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [form.project_id]);
+
+  const designerMembers      = projectMembers.filter((m) => m.role === "Project Designer");
+  const contractAdminMembers = projectMembers.filter((m) => m.role === "Contract Administrator");
 
   // Close on Escape
   useEffect(() => {
@@ -174,6 +219,8 @@ export default function EmailReviewModal({ emailId, onClose }) {
         trade:      form.trade,
       };
       if (form.due_date) payload.due_date = form.due_date;
+      if (form.designer_ids.length) payload.designer_ids = form.designer_ids;
+      if (form.contract_admin_ids.length) payload.contract_admin_ids = form.contract_admin_ids;
 
       await api.post(`/api/email/inbound/${emailId}/approve/`, payload);
       toast.success("RFI created successfully.");
@@ -423,6 +470,50 @@ export default function EmailReviewModal({ emailId, onClose }) {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* Designers */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Designers
+                      </label>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                        Project Designers responsible for answering this RFI.
+                      </p>
+                      <AssigneePicker
+                        members={designerMembers}
+                        value={form.designer_ids}
+                        onChange={(ids) => setForm((f) => ({ ...f, designer_ids: ids }))}
+                        emptyMessage={
+                          !form.project_id
+                            ? "Select a project first"
+                            : membersLoading
+                            ? "Loading members…"
+                            : "No Project Designers in this project"
+                        }
+                      />
+                    </div>
+
+                    {/* Contract Administrators */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Contract Administrators
+                      </label>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                        Contract Administrators overseeing timelines and compliance.
+                      </p>
+                      <AssigneePicker
+                        members={contractAdminMembers}
+                        value={form.contract_admin_ids}
+                        onChange={(ids) => setForm((f) => ({ ...f, contract_admin_ids: ids }))}
+                        emptyMessage={
+                          !form.project_id
+                            ? "Select a project first"
+                            : membersLoading
+                            ? "Loading members…"
+                            : "No Contract Administrators in this project"
+                        }
+                      />
                     </div>
 
                     {/* RFI name */}

@@ -200,6 +200,108 @@ class ApproveEmailTests(APITestCase):
         resp = self.client.post(self.url, {"project_id": self.project.pk}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def _make_member(self, username, role):
+        from django.contrib.auth import get_user_model
+        from rfis.models import Member
+        User = get_user_model()
+        u = User.objects.create_user(username=username, password="pw")
+        return Member.objects.create(
+            user=u,
+            name=username.title(),
+            email=f"{username}@example.com",
+            role=role,
+        )
+
+    def _make_designer(self, username):
+        from rfis.models import Member
+        return self._make_member(username, Member.Role.PROJECT_DESIGNER)
+
+    def test_approve_assigns_designers(self):
+        d1 = self._make_designer("designer_one")
+        d2 = self._make_designer("designer_two")
+        self.client.force_authenticate(self.user)
+        resp = self.client.post(
+            self.url,
+            {"project_id": self.project.pk, "designer_ids": [d1.pk, d2.pk]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        from rfis.models import Rfi
+        rfi = Rfi.objects.get(pk=resp.data["rfi_id"])
+        self.assertCountEqual(
+            list(rfi.designers.values_list("pk", flat=True)), [d1.pk, d2.pk]
+        )
+
+    def test_approve_without_designers_leaves_none(self):
+        self.client.force_authenticate(self.user)
+        resp = self.client.post(self.url, {"project_id": self.project.pk}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        from rfis.models import Rfi
+        rfi = Rfi.objects.get(pk=resp.data["rfi_id"])
+        self.assertEqual(rfi.designers.count(), 0)
+
+    def test_approve_with_invalid_designer_id_returns_400(self):
+        self.client.force_authenticate(self.user)
+        resp = self.client.post(
+            self.url,
+            {"project_id": self.project.pk, "designer_ids": [99999]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("designer_ids", resp.data)
+
+    def test_approve_assigns_contract_admins(self):
+        from rfis.models import Member, Rfi
+        ca1 = self._make_member("ca_one", Member.Role.CONTRACT_ADMIN)
+        ca2 = self._make_member("ca_two", Member.Role.CONTRACT_ADMIN)
+        self.client.force_authenticate(self.user)
+        resp = self.client.post(
+            self.url,
+            {"project_id": self.project.pk, "contract_admin_ids": [ca1.pk, ca2.pk]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        rfi = Rfi.objects.get(pk=resp.data["rfi_id"])
+        self.assertCountEqual(
+            list(rfi.contract_administrators.values_list("pk", flat=True)),
+            [ca1.pk, ca2.pk],
+        )
+
+    def test_approve_assigns_designers_and_contract_admins_together(self):
+        from rfis.models import Member, Rfi
+        d = self._make_designer("designer_mix")
+        ca = self._make_member("ca_mix", Member.Role.CONTRACT_ADMIN)
+        self.client.force_authenticate(self.user)
+        resp = self.client.post(
+            self.url,
+            {
+                "project_id": self.project.pk,
+                "designer_ids": [d.pk],
+                "contract_admin_ids": [ca.pk],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        rfi = Rfi.objects.get(pk=resp.data["rfi_id"])
+        self.assertEqual(list(rfi.designers.values_list("pk", flat=True)), [d.pk])
+        self.assertEqual(
+            list(rfi.contract_administrators.values_list("pk", flat=True)), [ca.pk]
+        )
+
+    def test_approve_with_invalid_contract_admin_id_returns_400(self):
+        self.client.force_authenticate(self.user)
+        resp = self.client.post(
+            self.url,
+            {"project_id": self.project.pk, "contract_admin_ids": [99999]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("contract_admin_ids", resp.data)
+
 
 class RejectEmailTests(APITestCase):
     """POST /api/email/inbound/{id}/reject/"""
